@@ -103,10 +103,10 @@ export function Editor({
           />
         </label>
         <label className="flex flex-col">
-          <span className="label">Úvodní text pro účastníky (nepovinné)</span>
+          <span className="label">Úvodní text (nepovinné)</span>
           <AutoTextarea
             className="input"
-            placeholder="Na chvíli se zastavte a vyberte odpověď, která podle vás nejlépe vystihuje danou situaci."
+            placeholder=""
             value={draft.intro}
             onChange={(v) => setDraft({ ...draft, intro: v })}
           />
@@ -115,15 +115,14 @@ export function Editor({
           checked={draft.shuffleAnswers}
           onChange={(v) => setDraft({ ...draft, shuffleAnswers: v })}
           label="Zamíchat pořadí odpovědí"
-          hint="Každý účastník uvidí odpovědi v jiném pořadí, takže správná nebude vždycky na stejném místě."
+
         />
       </section>
 
       {responseCount > 0 && (
         <p className="note">
-          Workshop už má {responseCount} {plural(responseCount, "odeslanou odpověď", "odeslané odpovědi", "odeslaných odpovědí")}.
-          Opravy textů a změna pořadí jsou v pořádku. Smazáním otázky nebo odpovědi ale zmizí i její statistiky a
-          změna správné odpovědi přepočítá výsledky. Pro novou skupinu raději spusťte nový workshop.
+          Už {responseCount} {plural(responseCount, "odpověď", "odpovědi", "odpovědí")}. Smazání otázky nebo změna
+          správné odpovědi ovlivní výsledky.
         </p>
       )}
 
@@ -133,7 +132,7 @@ export function Editor({
         </h2>
         {missingCorrect > 0 && (
           <span className="rounded-full bg-pink/15 px-3 py-1 text-xs font-semibold text-pink">
-            {missingCorrect} {plural(missingCorrect, "otázka nemá", "otázky nemají", "otázek nemá")} správnou odpověď
+            {missingCorrect}× bez správné odpovědi
           </span>
         )}
       </div>
@@ -311,9 +310,7 @@ function QuestionCard({
 
       <div className="mt-4 flex flex-col gap-2 sm:pl-12">
         <p className={`text-xs ${noCorrect ? "font-semibold text-pink" : "text-muted"}`}>
-          {noCorrect
-            ? "Kliknutím na písmeno označte jednu správnou odpověď."
-            : "Označte jednu správnou odpověď. Účastníci mohou vybírat pouze jednu možnost."}
+          {noCorrect ? "Klikněte na písmeno správné odpovědi" : "Kliknutím na písmeno změníte správnou odpověď"}
         </p>
         {q.answers.map((a, ai) => {
           const correct = q.correctId === a.id;
@@ -391,10 +388,10 @@ function QuestionCard({
           </button>
         )}
         <label className="mt-4 flex flex-col">
-          <span className="label">Vysvětlení pro účastníka po odeslání</span>
+          <span className="label">Vysvětlení (uvidí po odeslání, nepovinné)</span>
           <AutoTextarea
             className="input text-[0.95rem] leading-relaxed"
-            placeholder="Proč je doporučená odpověď nejlepší volbou? Účastník to uvidí až po odeslání."
+            placeholder=""
             value={q.explanation ?? ""}
             onChange={(v) => onChange((x) => ({ ...x, explanation: v }))}
           />

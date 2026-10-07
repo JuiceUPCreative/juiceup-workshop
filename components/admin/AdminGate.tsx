@@ -85,17 +85,10 @@ function Login({ configured, onSuccess }: { configured: boolean; onSuccess: () =
             }
           }}
         >
-          <span className="eyebrow">Lektorský prostor</span>
-          <h1 className="font-display text-4xl leading-[1.05] font-extrabold">
-            Vítejte
-            <br />
-            <span className="text-mint">zpátky.</span>
-          </h1>
-          <p className="text-muted">Vaše otázky, vaše skupiny, nové vhledy.</p>
+          <h1 className="font-display text-3xl font-extrabold">Přihlášení lektora</h1>
           {!configured && (
             <p className="note">
-              Na serveru chybí proměnná <code className="font-semibold">ADMIN_PASSWORD</code>. Nastavte ji ve Vercelu a
-              nasaďte znovu.
+              Chybí <code className="font-semibold">ADMIN_PASSWORD</code> v nastavení serveru.
             </p>
           )}
           <div>
@@ -118,11 +111,11 @@ function Login({ configured, onSuccess }: { configured: boolean; onSuccess: () =
             </p>
           )}
           <button className="btn w-fit px-8" disabled={busy || !password}>
-            {busy ? "Ověřujeme…" : "Vstoupit ↗"}
+            {busy ? "…" : "Přihlásit"}
           </button>
         </form>
         <Link href="/" className="mt-6 text-sm text-muted hover:text-paper">
-          ← Zpět na stránku pro účastníky
+          ← Zpět
         </Link>
       </main>
     </div>

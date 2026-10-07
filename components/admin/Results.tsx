@@ -75,14 +75,14 @@ export function Results({ sessionId, onCountChange }: { sessionId: string; onCou
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-3 gap-3">
-        <Metric value={String(stats.startedCount)} label="Zahájilo vyplňování" />
-        <Metric value={String(stats.responseCount)} label="Odeslalo odpovědi" />
-        <Metric value={pct(stats.averageScore)} label="Celková úspěšnost" />
+        <Metric value={String(stats.startedCount)} label="Začalo" />
+        <Metric value={String(stats.responseCount)} label="Odeslalo" />
+        <Metric value={pct(stats.averageScore)} label="Úspěšnost" />
       </div>
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-2xl font-bold">Kde má smysl se zastavit?</h2>
+          <h2 className="font-display text-2xl font-bold">Otázky</h2>
           <div className="flex flex-wrap items-center gap-2">
             <select
               className="input w-auto! py-2! text-sm"
@@ -90,30 +90,29 @@ export function Results({ sessionId, onCountChange }: { sessionId: string; onCou
               onChange={(e) => setSort(e.target.value as typeof sort)}
               aria-label="Pořadí výsledků"
             >
-              <option value="order">Pořadí otázek</option>
+              <option value="order">Pořadí</option>
               <option value="worst">Nejnižší úspěšnost</option>
               <option value="best">Nejvyšší úspěšnost</option>
             </select>
             <a className="btn btn-secondary btn-sm" href={`/api/admin/sessions/${sessionId}/responses?format=csv`}>
-              Export CSV ↓
+              CSV
             </a>
           </div>
         </div>
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted">
-          Výsledky pouze z dokončených odeslání. Aktualizace každých 5 sekund.
           {offline ? (
-            <span className="text-pink">Spojení přerušeno, zkoušíme obnovit…</span>
+            <span className="text-pink">Offline</span>
           ) : (
             <span className="inline-flex items-center gap-1.5 text-mint">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-mint" /> živě
             </span>
           )}
-          {stats.lastResponseAt && <span>· poslední odeslání {formatDate(stats.lastResponseAt)}</span>}
+          {stats.lastResponseAt && <span>· poslední {formatDate(stats.lastResponseAt)}</span>}
         </p>
       </div>
 
       {stats.responseCount === 0 && (
-        <p className="note">Zatím nejsou dokončené odpovědi. Úspěšnost zobrazíme až po prvním odeslání.</p>
+        <p className="text-sm text-muted">Zatím žádné odpovědi.</p>
       )}
 
       {stats.questions.length > 0 && (
@@ -122,7 +121,7 @@ export function Results({ sessionId, onCountChange }: { sessionId: string; onCou
             className="self-end text-xs font-semibold text-muted hover:text-paper"
             onClick={() => setOpenIds(allOpen ? new Set() : new Set(stats.questions.map((q) => q.id)))}
           >
-            {allOpen ? "Sbalit vše" : "Rozbalit rozložení odpovědí"}
+            {allOpen ? "Sbalit vše" : "Rozbalit vše"}
           </button>
           {ordered.map((q) => (
             <QuestionCard
@@ -152,7 +151,7 @@ export function Results({ sessionId, onCountChange }: { sessionId: string; onCou
             }
           }}
         >
-          Smazat odpovědi tohoto workshopu
+          Smazat odpovědi
         </button>
       </div>
     </div>
@@ -190,7 +189,7 @@ function QuestionCard({
         <div className="flex items-center justify-between gap-3">
           <span className="eyebrow">
             Otázka {number}
-            {isHardest && <span className="ml-2 text-pink">· největší prostor pro práci</span>}
+            {isHardest && <span className="ml-2 text-pink">· nejhorší</span>}
           </span>
           <strong className={`font-display text-xl font-extrabold tabular-nums ${t.text}`}>{pct(q.rate)}</strong>
         </div>
@@ -205,8 +204,8 @@ function QuestionCard({
         </div>
         <span className="flex items-center justify-between text-xs text-muted">
           <span>
-            {q.correct} / {q.answered} doporučených odpovědí
-            {!q.correctId && <span className="ml-2 font-semibold text-pink">chybí označená správná odpověď</span>}
+            {q.correct} / {q.answered} správně
+            {!q.correctId && <span className="ml-2 font-semibold text-pink">bez správné odpovědi</span>}
           </span>
           <svg
             viewBox="0 0 24 24"
@@ -234,7 +233,7 @@ function QuestionCard({
                 <div className="leading-relaxed whitespace-pre-line">
                   <span className="mr-2 text-xs text-muted">{LETTERS[i]}</span>
                   {a.text}
-                  {correct && <span className="mt-0.5 block text-xs font-semibold text-mint">✓ Doporučená odpověď</span>}
+                  {correct && <span className="mt-0.5 block text-xs font-semibold text-mint">✓ Správná</span>}
                 </div>
                 <span className="text-sm font-bold tabular-nums">
                   {a.count} <span className="font-normal text-muted">({Math.round(share * 100)} %)</span>

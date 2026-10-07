@@ -69,7 +69,7 @@ export function SessionAdmin({ params }: { params: Promise<{ id: string }> }) {
   if (!session) return <Loader />;
 
   const tabs: [Tab, string][] = [
-    ["results", `Workshop & výsledky${count ? ` · ${count}` : ""}`],
+    ["results", `Výsledky a QR${count ? ` · ${count}` : ""}`],
     ["questions", `Otázky · ${session.questions.length}`],
   ];
 
@@ -77,7 +77,7 @@ export function SessionAdmin({ params }: { params: Promise<{ id: string }> }) {
     <div className="flex flex-col gap-6 py-8 sm:py-10">
       <div className="anim-rise flex flex-col gap-4">
         <Link href="/admin" onClick={guard} className="w-fit text-sm font-semibold text-muted hover:text-paper">
-          ← Lektorský prostor
+          ← Workshopy
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="min-w-0">
@@ -151,18 +151,11 @@ function ShareCard({ session, onPresent }: { session: Session; onPresent: (e: Re
           {url && <Qr value={url} className="aspect-square w-full" />}
         </div>
         <div className="flex flex-col gap-3">
-          <span className="eyebrow">Pozvěte skupinu</span>
-          <h2 className="font-display text-2xl leading-tight font-bold">
-            Naskenovat.
-            <br />
-            Zamyslet se. Odpovědět.
-          </h2>
-          <p className="text-xs break-all text-muted">
-            {url} · kód <strong className="font-mono tracking-[0.2em] text-paper">{session.code}</strong>
-          </p>
+          <p className="font-mono text-3xl font-bold tracking-[0.2em]">{session.code}</p>
+          <p className="text-sm break-all text-muted">{url}</p>
           <div className="mt-1 flex flex-wrap gap-2">
             <Link href={`/admin/${session.id}/present`} onClick={onPresent} className="btn btn-sm">
-              Zobrazit QR ↗
+              Promítnout
             </Link>
             <button
               className="btn btn-secondary btn-sm"
@@ -172,13 +165,13 @@ function ShareCard({ session, onPresent }: { session: Session; onPresent: (e: Re
                 setTimeout(() => setCopied(false), 1500);
               }}
             >
-              {copied ? <span className="anim-pop text-mint">✓ Zkopírováno</span> : "Kopírovat odkaz"}
+              {copied ? <span className="anim-pop text-mint">✓</span> : "Kopírovat odkaz"}
             </button>
             <button
               className="btn btn-secondary btn-sm"
               onClick={() => downloadQrSvg(url, `juiceup-qr-${session.code}.svg`)}
             >
-              Stáhnout QR (SVG)
+              SVG
             </button>
             <button
               className="btn btn-secondary btn-sm"
@@ -191,15 +184,12 @@ function ShareCard({ session, onPresent }: { session: Session; onPresent: (e: Re
       </div>
       {url && isLocalOrigin(url) && (
         <p className="note">
-          Tento QR kód vede na localhost, takže na telefonech účastníků nebude fungovat. Před promítáním otevřete
-          administraci na veřejné adrese aplikace (např. na Vercelu). QR se vždy generuje z adresy, na které je
-          administrace otevřená.
+          QR vede na localhost – na telefonech nebude fungovat. Otevřete admin na veřejné adrese.
         </p>
       )}
       {!session.open && (
         <p className="note">
-          Sběr je uzavřený. Účastníci nemohou nově vstoupit ani odeslat odpovědi. Kdo už odeslal, své vyhodnocení
-          dál uvidí.
+          Sběr je uzavřený.
         </p>
       )}
     </div>

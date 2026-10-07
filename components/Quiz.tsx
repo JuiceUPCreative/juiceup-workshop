@@ -3,7 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
-import { Drop, Loader, SiteHeader } from "@/components/Logo";
+import { Loader, SiteHeader } from "@/components/Logo";
 import { JuiceGlass, JuiceProgress } from "@/components/JuiceProgress";
 import type { Feedback, PublicSession } from "@/lib/types";
 
@@ -167,8 +167,8 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (error) {
     return (
       <Shell>
-        <Message eyebrow="Workshop space" title={<>Na chvíli se<br />zastavíme.</>}>
-          <p>{error}. Zkontrolujte prosím kód workshopu nebo naskenujte QR kód znovu.</p>
+        <Message eyebrow="Chyba" title={error}>
+          <p>Zkontrolujte kód nebo naskenujte QR znovu.</p>
           <Link href="/" className="btn mt-4 w-fit">
             Zadat kód ↗
           </Link>
@@ -180,7 +180,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (!session || !state) {
     return (
       <Shell>
-        <Loader label="Chystáme prostor…" />
+        <Loader />
       </Shell>
     );
   }
@@ -196,8 +196,8 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (!session.open) {
     return (
       <Shell>
-        <Message eyebrow={session.name} title={<>Workshop je<br /><span className="text-pink">uzavřený.</span></>}>
-          <p>Tento workshop už lektor uzavřel. Pokud jste nestihli odpovědi odeslat, domluvte se s ním.</p>
+        <Message eyebrow={session.name} title={<span className="text-pink">Workshop je uzavřený.</span>}>
+          <p>Odpovědi už nejde odeslat.</p>
         </Message>
       </Shell>
     );
@@ -206,8 +206,8 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (questions.length === 0) {
     return (
       <Shell>
-        <Message eyebrow={session.name} title={<>Otázky se ještě<br /><span className="text-mint">chystají.</span></>}>
-          <p>Zkuste to prosím za chvilku znovu.</p>
+        <Message eyebrow={session.name} title="Zatím tu nejsou otázky.">
+          <p>Zkuste to za chvíli znovu.</p>
         </Message>
       </Shell>
     );
@@ -264,7 +264,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
       <div className="sticky bottom-0 -mx-5 mt-auto flex flex-col gap-3 bg-gradient-to-t from-bg via-bg to-bg/0 px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:-mx-8 sm:px-8">
         {isLast && !allAnswered && (
           <p className="text-center text-sm text-muted">
-            Ještě nám chybí {missing} {plural(missing, "odpověď", "odpovědi", "odpovědí")}.{" "}
+            Chybí {missing} {plural(missing, "odpověď", "odpovědi", "odpovědí")}.{" "}
             <button
               className="font-semibold text-mint underline underline-offset-4"
               onClick={() => update({ index: questions.findIndex((x) => !state.answers[x.id]) })}
@@ -280,15 +280,14 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
           </button>
           {isLast ? (
             <button className="btn btn-pink" disabled={!allAnswered || busy} onClick={submit}>
-              {busy ? "Odesíláme…" : "Odeslat odpovědi ↗"}
+              {busy ? "Odesílám…" : "Odeslat"}
             </button>
           ) : (
             <button className="btn" disabled={!state.answers[q.id]} onClick={() => update({ index: index + 1 })}>
-              Další otázka →
+              Další →
             </button>
           )}
         </div>
-        <p className="text-xs text-muted">Svůj výběr můžete až do odeslání změnit.</p>
       </div>
     </Shell>
   );
@@ -335,29 +334,16 @@ function Intro({
   onStart: () => void;
 }) {
   return (
-    <div className="flex flex-1 flex-col justify-center gap-8 py-8">
-      <div className="anim-rise flex flex-col gap-5">
-        <span className="eyebrow">Vítejte na workshopu</span>
-        <h1 className="font-display text-4xl leading-[1.05] font-extrabold sm:text-6xl">{session.name}</h1>
-        <p className="max-w-xl text-lg leading-relaxed whitespace-pre-line text-muted">
-          {session.intro ||
-            "Na chvíli se zastavte a vyberte odpověď, která podle vás nejlépe vystihuje danou situaci."}
-        </p>
-      </div>
-      <div className="card anim-rise flex flex-col gap-4 p-6 [animation-delay:100ms] sm:p-8">
-        <h2 className="font-display text-xl font-bold">Váš pohled nás zajímá.</h2>
-        <p className="leading-relaxed text-muted">
-          Čeká vás {count} {plural(count, "otázka", "otázky", "otázek")}. Ke každé vyberete jednu odpověď. Můžete se
-          vracet a svůj výběr měnit.
-        </p>
-        <p className="text-xs leading-relaxed text-muted">
-          Bez jména, bez časového limitu. Lektor uvidí souhrn skupiny. Po odeslání získáte vlastní vyhodnocení.
-        </p>
-        {error && <p className="text-sm font-semibold text-pink">{error}</p>}
-        <button className="btn mt-2 w-fit px-8" onClick={onStart} disabled={busy}>
-          {busy ? "Chvilku…" : "Pojďme na to ↗"}
-        </button>
-      </div>
+    <div className="anim-rise flex flex-1 flex-col justify-center gap-6 py-8">
+      <h1 className="font-display text-4xl leading-[1.05] font-extrabold sm:text-6xl">{session.name}</h1>
+      {session.intro && <p className="max-w-xl text-lg leading-relaxed whitespace-pre-line text-muted">{session.intro}</p>}
+      <p className="text-muted">
+        {count} {plural(count, "otázka", "otázky", "otázek")} · u každé vyberte jednu odpověď
+      </p>
+      {error && <p className="text-sm font-semibold text-pink">{error}</p>}
+      <button className="btn w-fit px-10" onClick={onStart} disabled={busy}>
+        {busy ? "…" : "Začít"}
+      </button>
     </div>
   );
 }
@@ -543,16 +529,9 @@ function Results({
               <path className="check-draw" d="M5 12.5l4.5 4.5L19 7.5" />
             </svg>
           </div>
-          <span className="eyebrow anim-rise">Odpovědi jsou odeslané</span>
           <h1 className="anim-rise font-display text-5xl leading-[1.04] font-extrabold [animation-delay:60ms] sm:text-6xl">
-            Díky za
-            <br />
-            <span className="text-mint">váš pohled.</span>
+            Odesláno
           </h1>
-          <p className="anim-rise max-w-xl text-lg leading-relaxed text-muted [animation-delay:120ms]">
-            Váš příspěvek je součástí souhrnu skupiny. Tady se můžete podívat na doporučené odpovědi a proč dávají
-            smysl.
-          </p>
         </div>
         {scored.length > 0 && (
           <div className="card anim-rise flex items-center gap-4 self-start p-5 [animation-delay:180ms] sm:self-auto">
@@ -561,7 +540,7 @@ function Results({
               <span className="font-display block text-3xl font-extrabold text-paper tabular-nums">
                 {right} z {scored.length}
               </span>
-              {plural(right, "odpověď odpovídá", "odpovědi odpovídají", "odpovědí odpovídá")} doporučenému řešení
+              správně
             </p>
           </div>
         )}
@@ -582,7 +561,7 @@ function Results({
                       matches ? "bg-mint/15 text-mint" : "bg-pink/15 text-pink"
                     }`}
                   >
-                    {matches ? "Doporučená odpověď" : "Prostor pro další diskusi"}
+                    {matches ? "Správně" : "Špatně"}
                   </span>
                 )}
               </div>
@@ -610,7 +589,7 @@ function Results({
                         {(isMine || isCorrect) && (
                           <span className="mt-1 flex flex-wrap gap-x-3 text-xs font-bold">
                             {isMine && <span>Vaše volba</span>}
-                            {isCorrect && <span className="text-mint">Doporučená odpověď</span>}
+                            {isCorrect && <span className="text-mint">Správná odpověď</span>}
                           </span>
                         )}
                       </div>
@@ -626,9 +605,6 @@ function Results({
         })}
       </section>
 
-      <p className="flex items-center gap-2 text-sm text-muted">
-        <Drop className="h-4 w-3 text-mint" /> Výsledky jsou anonymní. Lektor vidí jen souhrn celé skupiny.
-      </p>
     </div>
   );
 }

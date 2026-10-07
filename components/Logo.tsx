@@ -37,22 +37,18 @@ export function Loader({ label = "Načítám…" }: { label?: string }) {
   );
 }
 
-/** Shared top bar: wordmark + "Workshop space" tag (or custom right-hand content). */
+/** Shared top bar: wordmark + optional right-hand content. */
 export function SiteHeader({ right, href = "/" }: { right?: React.ReactNode; href?: string }) {
   return (
     <header className="border-b border-line">
-      <div className="mx-auto flex h-[76px] w-full max-w-6xl items-center justify-between gap-4 px-5 sm:h-[92px] sm:px-8">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-5 sm:h-20 sm:px-8">
         <Link href={href} className="flex items-center gap-2 text-paper" aria-label="JuiceUP Workshop">
           <Logo className="h-7 w-auto sm:h-8" />
           <span className="text-2xl leading-none font-bold text-pink" aria-hidden>
             ↗
           </span>
         </Link>
-        {right ?? (
-          <span className="text-[10px] font-bold tracking-[0.2em] text-muted uppercase sm:text-[11px]">
-            Workshop space
-          </span>
-        )}
+        {right}
       </div>
     </header>
   );

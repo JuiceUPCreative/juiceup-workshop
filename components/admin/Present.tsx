@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Drop, Loader, Logo } from "@/components/Logo";
 import type { Session } from "@/lib/types";
-import { api, plural } from "./api";
+import { api } from "./api";
 import { useAuthError } from "./AdminGate";
 import { useOrigin } from "./useOrigin";
 import { Qr } from "./Qr";
@@ -68,12 +68,11 @@ export function Present({ params }: { params: Promise<{ id: string }> }) {
           <span className="eyebrow">JuiceUP · {session.name}</span>
           <h1 className="font-display text-5xl leading-[1.02] font-extrabold xl:text-7xl">
             Naskenujte
-            <br />a dejte nám
             <br />
-            <span className="text-mint">svůj pohled.</span>
+            <span className="text-mint">QR kód</span>
           </h1>
           <div className="flex flex-col gap-2 text-muted">
-            <span className="text-lg">nebo otevřete</span>
+            <span className="text-lg">nebo</span>
             <span className="font-display text-2xl font-bold break-all text-paper xl:text-3xl">{displayUrl}</span>
           </div>
           <div key={bump} className="flex items-center gap-4">
@@ -83,12 +82,12 @@ export function Present({ params }: { params: Promise<{ id: string }> }) {
               {session.responseCount}
             </span>
             <span className="text-xl text-muted">
-              {plural(session.responseCount, "odeslaná odpověď", "odeslané odpovědi", "odeslaných odpovědí")}
+              odesláno
             </span>
           </div>
           {!session.open && (
             <p className="note w-fit text-base!">
-              Sběr je uzavřený. Nové odpovědi se nepřijímají.
+              Sběr je uzavřený.
             </p>
           )}
         </div>
