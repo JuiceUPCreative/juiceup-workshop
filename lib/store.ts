@@ -1,13 +1,13 @@
 import "server-only";
-import { Redis } from "@upstash/redis";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { promises as fs } from "fs";
 import path from "path";
 import type { Session, SessionResponse } from "./types";
 
 /**
  * Storage backend.
- * - On Vercel: Upstash Redis (added via Vercel Marketplace, env vars are injected automatically).
- * - Locally without those env vars: a JSON file in ./data.
+ * - On Cloudflare Workers: D1 (binding `DB`, schema in ./migrations).
+ * - Locally (`next dev`): a JSON file in ./data.
  */
 interface Store {
   listSessions(): Promise<Session[]>;
@@ -24,72 +24,91 @@ interface Store {
   clearResponses(sessionId: string): Promise<void>;
 }
 
-const redisUrl = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-const redisToken = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+/** The subset of Cloudflare's D1 API we use (avoids pulling in workers-types). */
+interface D1Statement {
+  bind(...values: unknown[]): D1Statement;
+  first<T = Record<string, unknown>>(): Promise<T | null>;
+  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+  run(): Promise<{ meta: { changes: number } }>;
+}
+interface D1Database {
+  prepare(sql: string): D1Statement;
+  batch(statements: D1Statement[]): Promise<unknown[]>;
+}
 
-const PREFIX = "jw:";
-const K_SESSIONS = `${PREFIX}sessions`;
-const K_CODES = `${PREFIX}codes`;
-const kResponses = (id: string) => `${PREFIX}responses:${id}`;
-const kStarted = (id: string) => `${PREFIX}started:${id}`;
-const kSubmitted = (id: string) => `${PREFIX}submitted:${id}`;
-
-function createRedisStore(redis: Redis): Store {
-  const parse = <T>(v: unknown): T => (typeof v === "string" ? JSON.parse(v) : v) as T;
+function createD1Store(db: D1Database): Store {
+  const count = async (sql: string, id: string) =>
+    (await db.prepare(sql).bind(id).first<{ n: number }>())?.n ?? 0;
   return {
     async listSessions() {
-      const all = await redis.hgetall<Record<string, string>>(K_SESSIONS);
-      return all ? Object.values(all).map((v) => parse<Session>(v)) : [];
+      const { results } = await db.prepare("SELECT data FROM sessions").all<{ data: string }>();
+      return results.map((r) => JSON.parse(r.data) as Session);
     },
     async getSession(id) {
-      const v = await redis.hget<string>(K_SESSIONS, id);
-      return v ? parse<Session>(v) : null;
+      const row = await db.prepare("SELECT data FROM sessions WHERE id = ?").bind(id).first<{ data: string }>();
+      return row ? (JSON.parse(row.data) as Session) : null;
     },
     async getSessionIdByCode(code) {
-      return (await redis.hget<string>(K_CODES, code)) ?? null;
+      const row = await db.prepare("SELECT id FROM sessions WHERE code = ?").bind(code).first<{ id: string }>();
+      return row?.id ?? null;
     },
     async saveSession(session) {
-      await redis
-        .pipeline()
-        .hset(K_SESSIONS, { [session.id]: JSON.stringify(session) })
-        .hset(K_CODES, { [session.code]: session.id })
-        .exec();
+      await db
+        .prepare(
+          "INSERT INTO sessions (id, code, data) VALUES (?, ?, ?) " +
+            "ON CONFLICT(id) DO UPDATE SET code = excluded.code, data = excluded.data",
+        )
+        .bind(session.id, session.code, JSON.stringify(session))
+        .run();
     },
     async deleteSession(id) {
-      const s = await this.getSession(id);
-      const p = redis
-        .pipeline()
-        .hdel(K_SESSIONS, id)
-        .del(kResponses(id), kStarted(id), kSubmitted(id));
-      if (s) p.hdel(K_CODES, s.code);
-      await p.exec();
+      await db.batch([
+        db.prepare("DELETE FROM sessions WHERE id = ?").bind(id),
+        db.prepare("DELETE FROM responses WHERE session_id = ?").bind(id),
+        db.prepare("DELETE FROM starts WHERE session_id = ?").bind(id),
+      ]);
     },
     async markStarted(sessionId, participantId) {
-      await redis.sadd(kStarted(sessionId), participantId);
+      await db
+        .prepare("INSERT OR IGNORE INTO starts (session_id, participant_id) VALUES (?, ?)")
+        .bind(sessionId, participantId)
+        .run();
     },
-    async countStarted(sessionId) {
-      return redis.scard(kStarted(sessionId));
+    countStarted(sessionId) {
+      // Union with responses so submissions without a recorded start still count.
+      return count(
+        "SELECT COUNT(*) AS n FROM (SELECT participant_id FROM starts WHERE session_id = ?1 " +
+          "UNION SELECT participant_id FROM responses WHERE session_id = ?1)",
+        sessionId,
+      );
     },
     async addResponse(sessionId, response) {
-      // SADD is atomic, so concurrent retries of the same participant store one response.
-      const isNew = await redis.sadd(kSubmitted(sessionId), response.id);
-      if (!isNew) return false;
-      await redis
-        .pipeline()
-        .sadd(kStarted(sessionId), response.id)
-        .rpush(kResponses(sessionId), JSON.stringify(response))
-        .exec();
-      return true;
+      // The primary key makes retries and concurrent duplicates no-ops.
+      const res = await db
+        .prepare(
+          "INSERT OR IGNORE INTO responses (session_id, participant_id, created_at, answers) VALUES (?, ?, ?, ?)",
+        )
+        .bind(sessionId, response.id, response.createdAt, JSON.stringify(response.answers))
+        .run();
+      return res.meta.changes > 0;
     },
     async listResponses(sessionId) {
-      const items = await redis.lrange<string>(kResponses(sessionId), 0, -1);
-      return items.map((v) => parse<SessionResponse>(v));
+      const { results } = await db
+        .prepare(
+          "SELECT participant_id, created_at, answers FROM responses WHERE session_id = ? ORDER BY created_at",
+        )
+        .bind(sessionId)
+        .all<{ participant_id: string; created_at: number; answers: string }>();
+      return results.map((r) => ({ id: r.participant_id, createdAt: r.created_at, answers: JSON.parse(r.answers) }));
     },
-    async countResponses(sessionId) {
-      return redis.llen(kResponses(sessionId));
+    countResponses(sessionId) {
+      return count("SELECT COUNT(*) AS n FROM responses WHERE session_id = ?", sessionId);
     },
     async clearResponses(sessionId) {
-      await redis.del(kResponses(sessionId), kStarted(sessionId), kSubmitted(sessionId));
+      await db.batch([
+        db.prepare("DELETE FROM responses WHERE session_id = ?").bind(sessionId),
+        db.prepare("DELETE FROM starts WHERE session_id = ?").bind(sessionId),
+      ]);
     },
   };
 }
@@ -187,11 +206,37 @@ function createFileStore(): Store {
   };
 }
 
-export const storeKind: "redis" | "file" = redisUrl && redisToken ? "redis" : "file";
+let fileStore: Store | null = null;
 
-export const store: Store =
-  storeKind === "redis"
-    ? createRedisStore(
-        new Redis({ url: redisUrl!, token: redisToken!, automaticDeserialization: false }),
-      )
-    : createFileStore();
+/** Resolved per call: the Cloudflare context only exists inside a request on Workers. */
+function backend(): Store {
+  try {
+    const db = (getCloudflareContext().env as unknown as { DB?: D1Database }).DB;
+    if (db) return createD1Store(db);
+  } catch {
+    // Not running on Cloudflare (e.g. `next dev`).
+  }
+  return (fileStore ??= createFileStore());
+}
+
+export function storeKind(): "d1" | "file" {
+  try {
+    return (getCloudflareContext().env as unknown as { DB?: unknown }).DB ? "d1" : "file";
+  } catch {
+    return "file";
+  }
+}
+
+export const store: Store = {
+  listSessions: () => backend().listSessions(),
+  getSession: (id) => backend().getSession(id),
+  getSessionIdByCode: (code) => backend().getSessionIdByCode(code),
+  saveSession: (s) => backend().saveSession(s),
+  deleteSession: (id) => backend().deleteSession(id),
+  markStarted: (sid, pid) => backend().markStarted(sid, pid),
+  countStarted: (sid) => backend().countStarted(sid),
+  addResponse: (sid, r) => backend().addResponse(sid, r),
+  listResponses: (sid) => backend().listResponses(sid),
+  countResponses: (sid) => backend().countResponses(sid),
+  clearResponses: (sid) => backend().clearResponses(sid),
+};

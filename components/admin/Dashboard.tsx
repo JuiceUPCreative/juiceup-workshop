@@ -25,7 +25,7 @@ export function Dashboard() {
 
       {data?.storageWarning && (
         <p className="note">
-          Chybí databáze, odpovědi se neukládají. Vercel → Storage → Upstash for Redis.
+          Chybí databáze D1 (binding DB), odpovědi se neukládají. Viz README.
         </p>
       )}
 

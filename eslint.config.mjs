@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Reference prototype from ChatGPT (Python/vanilla JS), not part of the app.
     "ChatGPT/**",
+    ".open-next/**",
+    ".wrangler/**",
   ]),
 ]);
 

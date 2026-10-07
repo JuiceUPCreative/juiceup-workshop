@@ -28,9 +28,9 @@ export async function GET() {
   summaries.sort((a, b) => b.createdAt - a.createdAt);
   return Response.json({
     sessions: summaries,
-    storage: storeKind,
-    // A file store on Vercel would silently lose data — surface it in the UI.
-    storageWarning: storeKind === "file" && !!process.env.VERCEL,
+    storage: storeKind(),
+    // In production a file store would silently lose data — surface it in the UI.
+    storageWarning: storeKind() === "file" && process.env.NODE_ENV === "production",
   });
 }
 

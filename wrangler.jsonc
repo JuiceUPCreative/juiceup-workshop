@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "juiceup-workshop",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      // Self-reference service binding, must match the worker name.
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "juiceup-workshop"
+    }
+  ],
+  "d1_databases": [
+    {
+      // Workshops + responses. Create with: npx wrangler d1 create juiceup-workshop
+      "binding": "DB",
+      "database_name": "juiceup-workshop",
+      "database_id": "82a78526-67e5-48f2-9deb-bf8176d24f4d",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

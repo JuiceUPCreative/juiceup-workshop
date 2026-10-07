@@ -43,3 +43,8 @@ next-env.d.ts
 # local data store
 /data
 !.env.example
+
+# cloudflare
+.open-next
+.wrangler
+.dev.vars*
