@@ -16,7 +16,60 @@
   --ju-mint: #63e8c6;
   --ju-mint-hover: #82f2d6;
   --ju-pink: #ff67aa;
+  /* Theme-dependent helpers */
+  --ju-mint-text: #63e8c6;
+  --ju-pink-text: #ff67aa;
+  --ju-track: #40394b;
+  --ju-track-2: #453d50;
+  --ju-dim: #696271;
+  --ju-input-border: #514b5b;
+  --ju-placeholder: #7d7787;
+  --ju-secondary-ring: #5c5666;
+  --ju-secondary-ring-hover: #6b6475;
+  --ju-error: #ffa7cb;
+  --ju-note-text: #dfc9d5;
+  --ju-glow: rgb(99 232 198 / 0.09);
+  --ju-skeleton-a: #28242f;
+  --ju-skeleton-b: #332e3a;
+  --ju-logo-up: #63e8c6;
   color-scheme: dark;
+}
+
+/* Light theme (toggled by the sun/moon button, stored in localStorage). */
+:root[data-theme="light"] {
+  --ju-bg: #f3f3f6;
+  --ju-surface: #ffffff;
+  --ju-surface-2: #f8f8fa;
+  --ju-field: #ffffff;
+  --ju-line: #e2e2e7;
+  --ju-line-strong: #cfcdd6;
+  --ju-paper: #1f1c25;
+  --ju-muted: #6b6774;
+  --ju-mint-hover: #4fdcb7;
+  --ju-mint-text: #13926f;
+  --ju-pink-text: #d92f7c;
+  --ju-track: #e4e3ea;
+  --ju-track-2: #e4e3ea;
+  --ju-dim: #c4c1cc;
+  --ju-input-border: #d3d1da;
+  --ju-placeholder: #a19dab;
+  --ju-secondary-ring: #cfcdd6;
+  --ju-secondary-ring-hover: #b5b2be;
+  --ju-error: #d92f7c;
+  --ju-note-text: #6b3a52;
+  --ju-glow: rgb(99 232 198 / 0.18);
+  --ju-skeleton-a: #ebeaef;
+  --ju-skeleton-b: #f6f6f8;
+  /* juiceup.cz shows the whole wordmark dark on light backgrounds */
+  --ju-logo-up: #1f1c25;
+  color-scheme: light;
+}
+/* Mint/pink are too light for text on white; darken them in light mode only. */
+:root[data-theme="light"] .text-mint {
+  color: var(--ju-mint-text);
+}
+:root[data-theme="light"] .text-pink {
+  color: var(--ju-pink-text);
 }
 
 @theme inline {
@@ -32,6 +85,10 @@
   --color-mint: var(--ju-mint);
   --color-mint-hover: var(--ju-mint-hover);
   --color-pink: var(--ju-pink);
+  --color-track: var(--ju-track);
+  --color-track-2: var(--ju-track-2);
+  --color-dim: var(--ju-dim);
+  --color-error: var(--ju-error);
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-display: var(--font-archivo), var(--font-inter), system-ui, sans-serif;
 }
@@ -40,6 +97,9 @@ html,
 body {
   background: var(--ju-bg);
   color: var(--ju-paper);
+  transition:
+    background-color 250ms,
+    color 250ms;
 }
 
 body {
@@ -69,7 +129,7 @@ body {
     width: 560px;
     height: 560px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgb(99 232 198 / 0.09), transparent 68%);
+    background: radial-gradient(circle, var(--ju-glow), transparent 68%);
     right: -180px;
     top: 80px;
     pointer-events: none;
@@ -82,7 +142,7 @@ body {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.18em;
-    color: var(--ju-mint);
+    color: var(--ju-mint-text);
   }
 
   .card {
@@ -137,11 +197,11 @@ body {
   .btn-secondary {
     background: transparent;
     color: var(--ju-paper);
-    box-shadow: inset 0 0 0 1px #5c5666;
+    box-shadow: inset 0 0 0 1px var(--ju-secondary-ring);
   }
   .btn-secondary:hover {
     background: var(--ju-line);
-    box-shadow: inset 0 0 0 1px #6b6475;
+    box-shadow: inset 0 0 0 1px var(--ju-secondary-ring-hover);
   }
   .btn-pink {
     background: var(--ju-pink);
@@ -153,7 +213,7 @@ body {
   }
   .btn-danger {
     background: transparent;
-    color: var(--ju-pink);
+    color: var(--ju-pink-text);
     box-shadow: inset 0 0 0 1px rgb(255 103 170 / 0.45);
   }
   .btn-danger:hover {
@@ -170,7 +230,7 @@ body {
     width: 100%;
     background: var(--ju-field);
     color: var(--ju-paper);
-    border: 1px solid #514b5b;
+    border: 1px solid var(--ju-input-border);
     border-radius: 12px;
     padding: 0.8rem 0.9rem;
     outline: none;
@@ -179,7 +239,7 @@ body {
       box-shadow 150ms;
   }
   .input::placeholder {
-    color: #7d7787;
+    color: var(--ju-placeholder);
   }
   .input:focus {
     border-color: var(--ju-mint);
@@ -197,7 +257,7 @@ body {
     background: rgb(255 103 170 / 0.07);
     border-left: 3px solid var(--ju-pink);
     padding: 14px 18px;
-    color: #dfc9d5;
+    color: var(--ju-note-text);
     font-size: 13px;
     line-height: 1.7;
     border-radius: 0 12px 12px 0;
@@ -307,7 +367,12 @@ body {
   animation: ju-draw 360ms 80ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 .skeleton {
-  background: linear-gradient(90deg, #28242f 25%, #332e3a 50%, #28242f 75%);
+  background: linear-gradient(
+    90deg,
+    var(--ju-skeleton-a) 25%,
+    var(--ju-skeleton-b) 50%,
+    var(--ju-skeleton-a) 75%
+  );
   background-size: 200% 100%;
   animation: ju-shimmer 1.4s linear infinite;
 }

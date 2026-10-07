@@ -106,7 +106,7 @@ function Login({ configured, onSuccess }: { configured: boolean; onSuccess: () =
             />
           </div>
           {error && (
-            <p className="text-sm font-semibold text-[#ffa7cb]" role="alert">
+            <p className="text-sm font-semibold text-error" role="alert">
               {error}
             </p>
           )}

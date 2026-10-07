@@ -196,7 +196,7 @@ function QuestionCard({
         <h3 className="text-lg leading-snug font-bold whitespace-pre-line group-hover:text-mint">
           {q.text || <em className="text-muted">bez textu</em>}
         </h3>
-        <div className="h-2 overflow-hidden rounded-full bg-[#453d50]">
+        <div className="h-2 overflow-hidden rounded-full bg-track-2">
           <div
             className={`h-full rounded-full ${t.bar}`}
             style={{ width: `${(q.rate ?? 0) * 100}%`, transition: "width 900ms cubic-bezier(0.22, 1, 0.36, 1)" }}
@@ -238,7 +238,7 @@ function QuestionCard({
                 <span className="text-sm font-bold tabular-nums">
                   {a.count} <span className="font-normal text-muted">({Math.round(share * 100)} %)</span>
                 </span>
-                <div className="col-span-2 h-2 overflow-hidden rounded-full bg-[#453d50]">
+                <div className="col-span-2 h-2 overflow-hidden rounded-full bg-track-2">
                   <div
                     className={`h-full rounded-full ${correct ? "bg-mint" : "bg-pink"}`}
                     style={{ width: `${share * 100}%`, transition: "width 700ms cubic-bezier(0.22,1,0.36,1)" }}

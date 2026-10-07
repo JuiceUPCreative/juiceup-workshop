@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { ThemeToggle } from "./ThemeToggle";
 
 /** Official JuiceUP wordmark; "UP" is coloured separately (mint by default). */
 export function Logo({
   className = "h-7 w-auto",
-  upColor = "var(--ju-mint)",
+  upColor = "var(--ju-logo-up)",
 }: {
   className?: string;
   upColor?: string;
@@ -48,7 +49,10 @@ export function SiteHeader({ right, href = "/" }: { right?: React.ReactNode; hre
             ↗
           </span>
         </Link>
-        {right}
+        <div className="flex items-center gap-2">
+          {right}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   );

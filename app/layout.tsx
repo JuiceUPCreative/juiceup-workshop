@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, Inter } from "next/font/google";
+import { themeInitScript } from "@/components/ThemeToggle";
 import "./globals.css";
 
 const inter = Inter({
@@ -27,7 +28,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="cs" className={`${inter.variable} ${display.variable} h-full antialiased`}>
+    <html lang="cs" className={`${inter.variable} ${display.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body className="relative min-h-full flex flex-col">
         <div className="ambient" aria-hidden />
         <div className="relative z-10 flex min-h-full flex-1 flex-col">{children}</div>

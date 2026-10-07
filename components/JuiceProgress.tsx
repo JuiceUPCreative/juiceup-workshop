@@ -3,7 +3,7 @@ export function JuiceProgress({ value }: { value: number }) {
   const pct = Math.max(0, Math.min(1, value)) * 100;
   return (
     <div
-      className="relative h-2 w-full overflow-hidden rounded-full bg-[#40394b]"
+      className="relative h-2 w-full overflow-hidden rounded-full bg-track"
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
@@ -47,7 +47,7 @@ export function JuiceGlass({ value, className = "" }: { value: number; className
         </clipPath>
       </defs>
       <g clipPath="url(#glass-clip)">
-        <rect x="0" y="0" width="120" height="170" fill="#211d28" />
+        <rect x="0" y="0" width="120" height="170" fill="var(--ju-field)" />
         <g
           style={{
             transform: `translateY(${top}px)`,
@@ -81,7 +81,7 @@ export function JuiceGlass({ value, className = "" }: { value: number; className
       <path
         d="M14 14 H106 L94 152 Q93 160 85 160 H35 Q27 160 26 152 Z"
         fill="none"
-        stroke="#f7f7f2"
+        stroke="var(--ju-paper)"
         strokeWidth="4"
         strokeLinejoin="round"
       />

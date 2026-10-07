@@ -9,6 +9,7 @@ import { api } from "./api";
 import { useAuthError } from "./AdminGate";
 import { useOrigin } from "./useOrigin";
 import { Qr } from "./Qr";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 /** Full-screen view for the projector: QR code + live response counter. */
 export function Present({ params }: { params: Promise<{ id: string }> }) {
@@ -58,9 +59,12 @@ export function Present({ params }: { params: Promise<{ id: string }> }) {
 
       <header className="relative flex items-center justify-between px-8 pt-6 lg:px-14">
         <Logo className="h-8 w-auto text-paper" />
-        <Link href={`/admin/${id}`} className="btn btn-secondary btn-sm">
-          Zavřít × <span className="text-muted">Esc</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/admin/${id}`} className="btn btn-secondary btn-sm">
+            Zavřít × <span className="text-muted">Esc</span>
+          </Link>
+          <ThemeToggle />
+        </div>
       </header>
 
       <div className="relative grid flex-1 items-center gap-10 px-8 py-10 lg:grid-cols-[1.1fr_1fr] lg:px-14">

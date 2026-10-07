@@ -322,7 +322,7 @@ function QuestionCard({
                 className={`mt-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold transition-all duration-200 ${
                   correct
                     ? "anim-pop bg-mint text-ink"
-                    : "border border-[#696271] text-muted hover:border-mint hover:text-paper"
+                    : "border border-dim text-muted hover:border-mint hover:text-paper"
                 }`}
               >
                 {correct ? "✓" : LETTERS[ai]}

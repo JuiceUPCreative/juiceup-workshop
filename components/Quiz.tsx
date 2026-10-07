@@ -466,7 +466,7 @@ function AnswerCard({
         />
         <span
           className={`relative grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-bold transition-colors duration-200 ${
-            selected ? "anim-pop bg-mint text-ink" : "border border-[#696271] text-muted group-hover:border-mint"
+            selected ? "anim-pop bg-mint text-ink" : "border border-dim text-muted group-hover:border-mint"
           }`}
         >
           {selected ? (
