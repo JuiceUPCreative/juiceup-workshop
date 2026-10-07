@@ -16,7 +16,7 @@ function draftOf(s: Session): Draft {
 
 function blankQuestion(): Question {
   const answers = [0, 1, 2, 3].map(() => ({ id: randomId(), text: "" }));
-  return { id: randomId(), text: "", answers, correctId: null };
+  return { id: randomId(), text: "", answers, correctId: null, explanation: "" };
 }
 
 function move<T>(arr: T[], from: number, to: number): T[] {
@@ -93,22 +93,20 @@ export function Editor({
 
   return (
     <div className="flex flex-col gap-6 pb-32">
-      <section className="ju-corner grid gap-4 bg-surface p-5 sm:p-6">
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-semibold">Název workshopu</span>
+      <section className="card grid gap-5 p-5 sm:p-7">
+        <label className="flex flex-col">
+          <span className="label">Název workshopu</span>
           <input
             className="input font-display text-lg font-bold"
             value={draft.name}
             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
           />
         </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-semibold">
-            Úvodní text pro účastníky <span className="font-normal text-muted">(nepovinné)</span>
-          </span>
+        <label className="flex flex-col">
+          <span className="label">Úvodní text pro účastníky (nepovinné)</span>
           <AutoTextarea
             className="input"
-            placeholder="např. Díky, že jste tu! Odpovězte prosím na pár otázek k dnešnímu tématu."
+            placeholder="Na chvíli se zastavte a vyberte odpověď, která podle vás nejlépe vystihuje danou situaci."
             value={draft.intro}
             onChange={(v) => setDraft({ ...draft, intro: v })}
           />
@@ -122,14 +120,11 @@ export function Editor({
       </section>
 
       {responseCount > 0 && (
-        <div className="ju-corner flex gap-3 bg-pink-soft p-4 text-sm">
-          <span className="text-lg leading-none">⚠︎</span>
-          <p>
-            Workshop už má {responseCount} {plural(responseCount, "odpověď", "odpovědi", "odpovědí")}. Opravy textů
-            a změna pořadí jsou v pořádku. Když ale smažeš otázku nebo odpověď, zmizí i její statistiky, a změna
-            správné odpovědi přepočítá výsledky.
-          </p>
-        </div>
+        <p className="note">
+          Workshop už má {responseCount} {plural(responseCount, "odeslanou odpověď", "odeslané odpovědi", "odeslaných odpovědí")}.
+          Opravy textů a změna pořadí jsou v pořádku. Smazáním otázky nebo odpovědi ale zmizí i její statistiky a
+          změna správné odpovědi přepočítá výsledky. Pro novou skupinu raději spusťte nový workshop.
+        </p>
       )}
 
       <div className="flex items-center justify-between">
@@ -137,7 +132,7 @@ export function Editor({
           Otázky <span className="text-muted">{draft.questions.length}</span>
         </h2>
         {missingCorrect > 0 && (
-          <span className="rounded-full bg-pink-soft px-3 py-1 text-xs font-semibold">
+          <span className="rounded-full bg-pink/15 px-3 py-1 text-xs font-semibold text-pink">
             {missingCorrect} {plural(missingCorrect, "otázka nemá", "otázky nemají", "otázek nemá")} správnou odpověď
           </span>
         )}
@@ -169,6 +164,7 @@ export function Editor({
                   text: q.text,
                   answers: q.answers.map((a) => ({ id: idMap.get(a.id)!, text: a.text })),
                   correctId: q.correctId ? idMap.get(q.correctId)! : null,
+                  explanation: q.explanation ?? "",
                 };
                 const out = qs.slice();
                 out.splice(qi + 1, 0, copy);
@@ -184,14 +180,14 @@ export function Editor({
       </div>
 
       <button
-        className="ju-corner group flex items-center justify-center gap-2 border-2 border-dashed border-ink/20 py-6 font-display font-bold text-ink/60 transition-colors hover:border-mint-strong hover:bg-mint-soft hover:text-ink"
+        className="group flex items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-line-strong py-6 font-display font-bold text-muted transition-colors hover:border-mint hover:bg-mint/5 hover:text-paper"
         onClick={() => {
           const q = blankQuestion();
           setQuestions((qs) => [...qs, q]);
           setFocusId(q.id);
         }}
       >
-        <span className="grid h-7 w-7 place-items-center rounded-full bg-ink/10 transition-transform group-hover:rotate-90 group-hover:bg-mint">
+        <span className="grid h-7 w-7 place-items-center rounded-full bg-line transition-transform group-hover:rotate-90 group-hover:bg-mint group-hover:text-ink">
           +
         </span>
         Přidat otázku
@@ -204,27 +200,27 @@ export function Editor({
         }`}
         style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}
       >
-        <div className="mx-auto mb-4 flex w-[calc(100%-2.5rem)] max-w-3xl items-center justify-between gap-4 rounded-[4px_4px_24px_4px] bg-ink px-5 py-3 text-white shadow-2xl">
+        <div className="mx-auto mb-4 flex w-[calc(100%-2.5rem)] max-w-3xl items-center justify-between gap-4 rounded-full border border-line-strong bg-surface-2 py-2 pr-2 pl-6 text-paper shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]">
           <span className="text-sm">
             {justSaved && !dirty ? (
               <span className="anim-pop inline-flex items-center gap-2 text-mint">✓ Uloženo</span>
             ) : (
               <>
-                Máš neuložené změny <span className="hidden text-white/50 sm:inline">· ⌘S</span>
+                Neuložené změny <span className="hidden text-muted sm:inline">· ⌘S</span>
               </>
             )}
           </span>
           <div className="flex gap-2">
             {dirty && (
               <button
-                className="btn btn-sm bg-transparent text-white/70 hover:bg-white/10 hover:text-white hover:shadow-none"
+                className="btn btn-sm bg-transparent text-muted hover:bg-line hover:text-paper hover:shadow-none"
                 onClick={() => setDraft(JSON.parse(saved))}
               >
                 Zahodit
               </button>
             )}
             <button className="btn btn-sm" disabled={!dirty || saving} onClick={save}>
-              {saving ? "Ukládám…" : "Uložit změny"}
+              {saving ? "Ukládáme…" : "Uložit změny ✓"}
             </button>
           </div>
         </div>
@@ -277,13 +273,13 @@ function QuestionCard({
         setDraggable(false);
         onDragEnd();
       }}
-      className={`ju-corner anim-rise bg-surface p-4 transition-[opacity,box-shadow,transform] duration-200 sm:p-6 ${
-        dragging ? "scale-[0.99] opacity-50 shadow-none" : "shadow-[0_2px_0_rgba(31,28,37,0.04)]"
+      className={`card anim-rise p-4 transition-[opacity,transform,border-color] duration-200 sm:p-6 ${
+        dragging ? "scale-[0.99] border-mint opacity-50" : ""
       }`}
     >
       <div className="flex items-start gap-3">
         <button
-          className="mt-1 flex h-9 w-9 shrink-0 cursor-grab touch-none flex-col items-center justify-center rounded-[3px_3px_12px_3px] bg-ink font-display text-sm font-bold text-white active:cursor-grabbing"
+          className="mt-1 flex h-9 w-9 shrink-0 cursor-grab touch-none flex-col items-center justify-center rounded-full bg-mint font-display text-sm font-bold text-ink active:cursor-grabbing"
           title="Přetáhni pro změnu pořadí"
           onPointerDown={() => setDraggable(true)}
           onPointerUp={() => setDraggable(false)}
@@ -314,8 +310,10 @@ function QuestionCard({
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:pl-12">
-        <p className={`text-xs font-semibold ${noCorrect ? "text-pink" : "text-muted"}`}>
-          {noCorrect ? "Klikni na písmeno a označ správnou odpověď" : "Odpovědi · zelená je správná"}
+        <p className={`text-xs ${noCorrect ? "font-semibold text-pink" : "text-muted"}`}>
+          {noCorrect
+            ? "Kliknutím na písmeno označte jednu správnou odpověď."
+            : "Označte jednu správnou odpověď. Účastníci mohou vybírat pouze jednu možnost."}
         </p>
         {q.answers.map((a, ai) => {
           const correct = q.correctId === a.id;
@@ -324,16 +322,16 @@ function QuestionCard({
               <button
                 title={correct ? "Správná odpověď" : "Označit jako správnou"}
                 onClick={() => onChange((x) => ({ ...x, correctId: a.id }))}
-                className={`mt-1.5 grid h-8 w-8 shrink-0 place-items-center rounded-[3px_3px_11px_3px] font-display text-sm font-bold transition-all duration-200 ${
+                className={`mt-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold transition-all duration-200 ${
                   correct
                     ? "anim-pop bg-mint text-ink"
-                    : "bg-bg text-ink/60 hover:bg-mint-soft hover:text-ink"
+                    : "border border-[#696271] text-muted hover:border-mint hover:text-paper"
                 }`}
               >
                 {correct ? "✓" : LETTERS[ai]}
               </button>
               <AutoTextarea
-                className={`input flex-1 text-[0.95rem] ${correct ? "border-mint! bg-mint-soft/50" : ""}`}
+                className={`input flex-1 text-[0.95rem] leading-relaxed ${correct ? "border-mint! bg-mint/[0.06]!" : ""}`}
                 placeholder={`Odpověď ${LETTERS[ai]}…`}
                 value={a.text}
                 autoFocus={newAnswerId === a.id}
@@ -382,16 +380,25 @@ function QuestionCard({
         })}
         {q.answers.length < 12 && (
           <button
-            className="mt-1 self-start rounded-full px-3 py-1.5 text-sm font-semibold text-muted transition-colors hover:bg-mint-soft hover:text-ink"
+            className="btn btn-secondary btn-sm mt-1 self-start"
             onClick={() => {
               const id = randomId();
               setNewAnswerId(id);
               onChange((x) => ({ ...x, answers: [...x.answers, { id, text: "" }] }));
             }}
           >
-            + Přidat odpověď
+            + Odpověď
           </button>
         )}
+        <label className="mt-4 flex flex-col">
+          <span className="label">Vysvětlení pro účastníka po odeslání</span>
+          <AutoTextarea
+            className="input text-[0.95rem] leading-relaxed"
+            placeholder="Proč je doporučená odpověď nejlepší volbou? Účastník to uvidí až po odeslání."
+            value={q.explanation ?? ""}
+            onChange={(v) => onChange((x) => ({ ...x, explanation: v }))}
+          />
+        </label>
       </div>
     </article>
   );
@@ -406,9 +413,9 @@ function IconButton({
   return (
     <button
       {...props}
-      className={`grid shrink-0 place-items-center rounded-[3px_3px_10px_3px] text-ink/50 transition-all hover:text-ink active:scale-90 disabled:pointer-events-none disabled:opacity-25 ${
-        small ? "h-7 w-7 text-sm" : "h-8 w-8"
-      } ${danger ? "hover:bg-pink-soft hover:text-pink" : "hover:bg-bg"}`}
+      className={`grid shrink-0 place-items-center rounded-[10px] border border-line text-muted transition-all active:scale-90 disabled:pointer-events-none disabled:opacity-25 ${
+        small ? "h-7 w-7 text-sm" : "h-9 w-9"
+      } ${danger ? "hover:border-pink hover:text-pink" : "hover:border-mint hover:text-paper"}`}
     >
       {children}
     </button>
@@ -432,8 +439,21 @@ function AutoTextarea({
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight + 3}px`;
+    const fit = () => {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight + 3}px`;
+    };
+    fit();
+    // Re-measure when the width changes — e.g. the editor tab was hidden while mounting.
+    let lastWidth = el.clientWidth;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth !== lastWidth) {
+        lastWidth = el.clientWidth;
+        fit();
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
   }, [value]);
   useEffect(() => {
     if (autoFocus) ref.current?.focus();
@@ -469,11 +489,11 @@ export function Toggle({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative mt-0.5 h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${
-          checked ? "bg-mint-strong" : "bg-line"
+          checked ? "bg-mint" : "bg-line-strong"
         }`}
       >
         <span
-          className="absolute top-1 left-1 h-5 w-5 rounded-full bg-white shadow"
+          className="absolute top-1 left-1 h-5 w-5 rounded-full bg-paper shadow"
           style={{
             transform: checked ? "translateX(20px)" : "none",
             transition: "transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1)",

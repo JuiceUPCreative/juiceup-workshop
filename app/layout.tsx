@@ -15,12 +15,12 @@ const display = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "JuiceUP Workshop",
+  title: "JuiceUP · Workshop",
   description: "Interaktivní otázky pro účastníky workshopů JuiceUP.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#f0f0f2",
+  themeColor: "#1f1c25",
   width: "device-width",
   initialScale: 1,
 };
@@ -28,7 +28,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="cs" className={`${inter.variable} ${display.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="relative min-h-full flex flex-col">
+        <div className="ambient" aria-hidden />
+        <div className="relative z-10 flex min-h-full flex-1 flex-col">{children}</div>
+      </body>
     </html>
   );
 }

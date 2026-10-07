@@ -8,6 +8,8 @@ export type Question = {
   text: string;
   answers: Answer[];
   correctId: string | null;
+  /** Shown to participants after they submit. */
+  explanation: string;
 };
 
 export type Session = {
@@ -24,11 +26,15 @@ export type Session = {
 };
 
 export type SessionResponse = {
+  /** Participant id — one response per participant. */
   id: string;
   createdAt: number;
   /** questionId -> answerId */
   answers: Record<string, string>;
 };
+
+/** Returned to a participant after submitting: questionId -> recommended answer + explanation. */
+export type Feedback = Record<string, { correctId: string | null; explanation: string }>;
 
 /** What participants receive — no correct answers leaked. */
 export type PublicSession = {
@@ -43,7 +49,7 @@ export type PublicSession = {
 export type SessionSummary = Pick<
   Session,
   "id" | "code" | "name" | "open" | "createdAt" | "updatedAt"
-> & { questionCount: number; responseCount: number };
+> & { questionCount: number; responseCount: number; startedCount: number };
 
 export type QuestionStats = {
   id: string;
@@ -57,6 +63,7 @@ export type QuestionStats = {
 };
 
 export type SessionStats = {
+  startedCount: number;
   responseCount: number;
   averageScore: number | null;
   lastResponseAt: number | null;

@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { normalizeCode, randomId } from "@/lib/ids";
-import { getSessionByCode, toPublic } from "@/lib/sessions";
+import { normalizeCode, participantId } from "@/lib/ids";
+import { feedbackFor, getSessionByCode, toPublic } from "@/lib/sessions";
 import { store } from "@/lib/store";
 
 const notFound = () => Response.json({ error: "Workshop nenalezen" }, { status: 404 });
@@ -20,7 +20,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/s/[code]">)
     return Response.json({ error: "Workshop už nepřijímá odpovědi" }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { answers?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { answers?: unknown; pid?: unknown } | null;
+  const pid =
+    typeof body?.pid === "string" && /^[a-f0-9]{32}$/.test(body.pid) ? body.pid : participantId();
   const raw = (body?.answers ?? {}) as Record<string, unknown>;
 
   // Keep only answers that match the current questions.
@@ -29,13 +31,13 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/s/[code]">)
     const a = raw[q.id];
     if (typeof a === "string" && q.answers.some((x) => x.id === a)) answers[q.id] = a;
   }
-  if (Object.keys(answers).length === 0) {
-    return Response.json({ error: "Žádné odpovědi" }, { status: 400 });
+  const required = toPublic(session).questions;
+  if (required.some((q) => !answers[q.id])) {
+    return Response.json({ error: "Odpovězte prosím na všechny otázky." }, { status: 400 });
   }
 
-  await store.addResponse(session.id, { id: randomId(), createdAt: Date.now(), answers });
+  // Idempotent: a retried or repeated submission never adds a second result.
+  await store.addResponse(session.id, { id: pid, createdAt: Date.now(), answers });
 
-  const correct: Record<string, string | null> = {};
-  for (const q of session.questions) correct[q.id] = q.correctId;
-  return Response.json({ correct });
+  return Response.json({ feedback: feedbackFor(session) });
 }

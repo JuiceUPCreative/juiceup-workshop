@@ -3,11 +3,20 @@
 Jednoduchá webová aplikace pro workshopy. Lektor promítne QR kód, účastníci na mobilu odpoví na otázky
 (vždy jedna správná odpověď) a lektor v administraci vidí, které otázky šly dobře a které hůř.
 
-- **Účastníci:** `/s/KÓD` (nebo zadání kódu na úvodní stránce). Na konci uvidí své skóre a správné odpovědi.
-- **Lektor:** `/admin`. Přihlašuje se jedním heslem. Spravuje workshopy, upravuje otázky (pořadí, texty, správná odpověď),
-  sleduje živé výsledky, exportuje CSV a promítá QR kód v prezentačním režimu.
+- **Účastník:** `/s/KÓD`, případně zadá kód na úvodní stránce. Nevyplňuje jméno a nemá časový limit. Vidí jednu otázku
+  na obrazovce, mezi otázkami může přeskakovat tečkami a výběr může až do odeslání měnit. Rozpracované odpovědi zůstanou
+  zachované i po obnovení stránky. Po odeslání uvidí doporučené odpovědi s vysvětlením.
+- **Lektor:** `/admin` s jedním heslem. Spouští workshopy (otázky se kopírují z ukázkové sady nebo z předchozího
+  workshopu), upravuje otázky (pořadí, texty, správná odpověď, vysvětlení) a sleduje živý souhrn: kolik lidí
+  vyplňování zahájilo a kolik odeslalo, úspěšnost u jednotlivých otázek a rozložení odpovědí. Může exportovat CSV,
+  uzavřít sběr a promítnout QR (zavírá se klávesou Esc). QR jde stáhnout jako SVG nebo PNG.
 
-Každý workshop má vlastní kód, QR, kopii otázek i výsledky. Nový workshop jde vytvořit zkopírováním otázek z předchozího.
+Každý workshop má vlastní kód, QR, kopii otázek i výsledky. Úprava jednoho workshopu proto nezmění výsledky ostatních.
+Odeslání je jednorázové: opakované nebo souběžné odeslání stejného účastníka se započítá jen jednou. Správné odpovědi
+a vysvětlení posílá server účastníkovi až po odeslání.
+
+Vizuál vychází z prototypu ve složce `ChatGPT/` (tmavá `#1F1C25`, mentolová `#63E8C6`, růžová `#FF67AA`).
+Logo je oficiální wordmark z juiceup.cz. Firemní písmo Europa Grotesk nahrazuje Archivo.
 
 ## Lokální vývoj
 

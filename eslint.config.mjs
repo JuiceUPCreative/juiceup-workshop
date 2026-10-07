@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Reference prototype from ChatGPT (Python/vanilla JS), not part of the app.
+    "ChatGPT/**",
   ]),
 ]);
 

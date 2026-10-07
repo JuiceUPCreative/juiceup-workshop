@@ -35,3 +35,27 @@ export async function downloadQrPng(value: string, filename: string) {
   a.download = filename;
   a.click();
 }
+
+/** Vector QR for slides — stays sharp at any size. */
+export async function downloadQrSvg(value: string, filename: string) {
+  const svg = await QRCode.toString(value, {
+    type: "svg",
+    margin: 2,
+    errorCorrectionLevel: "M",
+    color: { dark: "#1f1c25", light: "#ffffff" },
+  });
+  const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function isLocalOrigin(url: string): boolean {
+  try {
+    return ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"].includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}

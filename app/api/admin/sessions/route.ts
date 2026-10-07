@@ -22,6 +22,7 @@ export async function GET() {
       updatedAt: s.updatedAt,
       questionCount: s.questions.length,
       responseCount: await store.countResponses(s.id),
+      startedCount: await store.countStarted(s.id),
     })),
   );
   summaries.sort((a, b) => b.createdAt - a.createdAt);

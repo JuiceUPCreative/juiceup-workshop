@@ -2,33 +2,36 @@
 @layer theme, base, ju, components, utilities;
 @import "tailwindcss";
 
-/* JuiceUP brand tokens (taken from juiceup.cz) */
+/* JuiceUP "Workshop Space" — dark brand theme. */
 :root {
-  --ju-bg: #f0f0f2;
-  --ju-surface: #ffffff;
+  --ju-bg: #1f1c25;
+  --ju-surface: #28242f;
+  --ju-surface-2: #302b37;
+  --ju-field: #211d28;
+  --ju-line: #393540;
+  --ju-line-strong: #4a4354;
+  --ju-paper: #f7f7f2;
+  --ju-muted: #aba6b4;
   --ju-ink: #1f1c25;
-  --ju-muted: #6e6e73;
-  --ju-line: #e2e2e7;
   --ju-mint: #63e8c6;
-  --ju-mint-strong: #2fc79f;
-  --ju-mint-soft: #dcfaf2;
+  --ju-mint-hover: #82f2d6;
   --ju-pink: #ff67aa;
-  --ju-pink-soft: #ffe3ef;
-  --ju-corner: 22px;
-  color-scheme: light;
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-bg: var(--ju-bg);
   --color-surface: var(--ju-surface);
-  --color-ink: var(--ju-ink);
-  --color-muted: var(--ju-muted);
+  --color-surface-2: var(--ju-surface-2);
+  --color-field: var(--ju-field);
   --color-line: var(--ju-line);
+  --color-line-strong: var(--ju-line-strong);
+  --color-paper: var(--ju-paper);
+  --color-muted: var(--ju-muted);
+  --color-ink: var(--ju-ink);
   --color-mint: var(--ju-mint);
-  --color-mint-strong: var(--ju-mint-strong);
-  --color-mint-soft: var(--ju-mint-soft);
+  --color-mint-hover: var(--ju-mint-hover);
   --color-pink: var(--ju-pink);
-  --color-pink-soft: var(--ju-pink-soft);
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-display: var(--font-archivo), var(--font-inter), system-ui, sans-serif;
 }
@@ -36,7 +39,7 @@
 html,
 body {
   background: var(--ju-bg);
-  color: var(--ju-ink);
+  color: var(--ju-paper);
 }
 
 body {
@@ -44,19 +47,58 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-.font-display {
-  font-family: var(--font-archivo), var(--font-inter), system-ui, sans-serif;
-  letter-spacing: -0.025em;
+::selection {
+  background: rgb(99 232 198 / 0.35);
+}
+
+:focus-visible {
+  outline: 3px solid var(--ju-pink);
+  outline-offset: 4px;
 }
 
 /* In a layer so Tailwind utilities (bg-*, px-*, …) can override these. */
 @layer ju {
-  /* Signature JuiceUP shape: square corners, one soft bottom-right corner. */
-  .ju-corner {
-    border-radius: 4px 4px var(--ju-corner) 4px;
+  .font-display {
+    font-family: var(--font-archivo), var(--font-inter), system-ui, sans-serif;
+    letter-spacing: -0.025em;
   }
-  .ju-corner-lg {
-    border-radius: 6px 6px 36px 6px;
+
+  /* Soft mint glow in the corner of every page. */
+  .ambient {
+    position: fixed;
+    width: 560px;
+    height: 560px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgb(99 232 198 / 0.09), transparent 68%);
+    right: -180px;
+    top: 80px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .eyebrow {
+    display: block;
+    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--ju-mint);
+  }
+
+  .card {
+    background: var(--ju-surface);
+    border: 1px solid var(--ju-line);
+    border-radius: 24px;
+  }
+
+  /* Signature asymmetric JuiceUP shape. */
+  .hero-card {
+    background: var(--ju-mint);
+    color: var(--ju-ink);
+    border-radius: 64px 12px 64px 12px;
+  }
+  .orb {
+    border-radius: 32px 12px 32px 12px;
   }
 
   .btn {
@@ -64,76 +106,101 @@ body {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.85rem 1.6rem;
+    min-height: 48px;
+    padding: 0.85rem 1.5rem;
     font-weight: 700;
-    font-family: var(--font-archivo), var(--font-inter), sans-serif;
-    border-radius: 0 0 20px 0;
+    border-radius: 999px;
     background: var(--ju-mint);
     color: var(--ju-ink);
     transition:
-      transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1),
-      background-color 160ms,
-      box-shadow 160ms,
-      opacity 160ms;
+      transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      background-color 180ms,
+      border-color 180ms,
+      box-shadow 180ms,
+      opacity 180ms;
     user-select: none;
     cursor: pointer;
+    white-space: nowrap;
   }
   .btn:hover {
-    background: #52dfba;
-    box-shadow: 0 6px 20px -8px rgb(47 199 159 / 0.7);
+    background: var(--ju-mint-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px -12px rgb(99 232 198 / 0.7);
   }
   .btn:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
   }
   .btn:disabled {
     opacity: 0.4;
     pointer-events: none;
   }
-  .btn-dark {
-    background: var(--ju-ink);
-    color: #fff;
-  }
-  .btn-dark:hover {
-    background: #2e2a36;
-    box-shadow: 0 6px 20px -8px rgb(31 28 37 / 0.6);
-  }
-  .btn-ghost {
+  .btn-secondary {
     background: transparent;
-    box-shadow: inset 0 0 0 1.5px var(--ju-ink);
+    color: var(--ju-paper);
+    box-shadow: inset 0 0 0 1px #5c5666;
   }
-  .btn-ghost:hover {
-    background: var(--ju-ink);
-    color: #fff;
-    box-shadow: none;
+  .btn-secondary:hover {
+    background: var(--ju-line);
+    box-shadow: inset 0 0 0 1px #6b6475;
   }
   .btn-pink {
     background: var(--ju-pink);
-    color: #fff;
+    color: var(--ju-ink);
   }
   .btn-pink:hover {
-    background: #ff52a0;
-    box-shadow: 0 6px 20px -8px rgb(255 103 170 / 0.7);
+    background: #ff85bb;
+    box-shadow: 0 10px 24px -12px rgb(255 103 170 / 0.7);
+  }
+  .btn-danger {
+    background: transparent;
+    color: var(--ju-pink);
+    box-shadow: inset 0 0 0 1px rgb(255 103 170 / 0.45);
+  }
+  .btn-danger:hover {
+    background: rgb(255 103 170 / 0.12);
+    box-shadow: inset 0 0 0 1px var(--ju-pink);
   }
   .btn-sm {
+    min-height: 40px;
     padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    border-radius: 0 0 14px 0;
+    font-size: 0.8125rem;
   }
 
   .input {
     width: 100%;
-    background: var(--ju-surface);
-    border: 1.5px solid var(--ju-line);
-    border-radius: 4px 4px 16px 4px;
-    padding: 0.7rem 0.9rem;
+    background: var(--ju-field);
+    color: var(--ju-paper);
+    border: 1px solid #514b5b;
+    border-radius: 12px;
+    padding: 0.8rem 0.9rem;
     outline: none;
     transition:
       border-color 150ms,
       box-shadow 150ms;
   }
+  .input::placeholder {
+    color: #7d7787;
+  }
   .input:focus {
-    border-color: var(--ju-mint-strong);
-    box-shadow: 0 0 0 4px rgb(99 232 198 / 0.25);
+    border-color: var(--ju-mint);
+    box-shadow: 0 0 0 4px rgb(99 232 198 / 0.18);
+  }
+
+  .label {
+    display: block;
+    font-size: 13px;
+    color: var(--ju-muted);
+    margin-bottom: 8px;
+  }
+
+  .note {
+    background: rgb(255 103 170 / 0.07);
+    border-left: 3px solid var(--ju-pink);
+    padding: 14px 18px;
+    color: #dfc9d5;
+    font-size: 13px;
+    line-height: 1.7;
+    border-radius: 0 12px 12px 0;
   }
 }
 
@@ -142,7 +209,7 @@ body {
 @keyframes ju-rise {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
@@ -167,10 +234,10 @@ body {
     transform: scale(1);
   }
   35% {
-    transform: scale(0.97, 0.94);
+    transform: scale(0.98, 0.96);
   }
   70% {
-    transform: scale(1.015, 1.02);
+    transform: scale(1.01, 1.015);
   }
   100% {
     transform: scale(1);
@@ -220,7 +287,7 @@ body {
 }
 
 .anim-rise {
-  animation: ju-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: ju-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .anim-pop {
   animation: ju-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -240,7 +307,7 @@ body {
   animation: ju-draw 360ms 80ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
 }
 .skeleton {
-  background: linear-gradient(90deg, #e6e6ea 25%, #f3f3f6 50%, #e6e6ea 75%);
+  background: linear-gradient(90deg, #28242f 25%, #332e3a 50%, #28242f 75%);
   background-size: 200% 100%;
   animation: ju-shimmer 1.4s linear infinite;
 }

@@ -15,7 +15,10 @@ interface Store {
   getSessionIdByCode(code: string): Promise<string | null>;
   saveSession(session: Session): Promise<void>;
   deleteSession(id: string): Promise<void>;
-  addResponse(sessionId: string, response: SessionResponse): Promise<void>;
+  markStarted(sessionId: string, participantId: string): Promise<void>;
+  countStarted(sessionId: string): Promise<number>;
+  /** Returns false when this participant already submitted (submissions are immutable). */
+  addResponse(sessionId: string, response: SessionResponse): Promise<boolean>;
   listResponses(sessionId: string): Promise<SessionResponse[]>;
   countResponses(sessionId: string): Promise<number>;
   clearResponses(sessionId: string): Promise<void>;
@@ -28,6 +31,8 @@ const PREFIX = "jw:";
 const K_SESSIONS = `${PREFIX}sessions`;
 const K_CODES = `${PREFIX}codes`;
 const kResponses = (id: string) => `${PREFIX}responses:${id}`;
+const kStarted = (id: string) => `${PREFIX}started:${id}`;
+const kSubmitted = (id: string) => `${PREFIX}submitted:${id}`;
 
 function createRedisStore(redis: Redis): Store {
   const parse = <T>(v: unknown): T => (typeof v === "string" ? JSON.parse(v) : v) as T;
@@ -52,12 +57,29 @@ function createRedisStore(redis: Redis): Store {
     },
     async deleteSession(id) {
       const s = await this.getSession(id);
-      const p = redis.pipeline().hdel(K_SESSIONS, id).del(kResponses(id));
+      const p = redis
+        .pipeline()
+        .hdel(K_SESSIONS, id)
+        .del(kResponses(id), kStarted(id), kSubmitted(id));
       if (s) p.hdel(K_CODES, s.code);
       await p.exec();
     },
+    async markStarted(sessionId, participantId) {
+      await redis.sadd(kStarted(sessionId), participantId);
+    },
+    async countStarted(sessionId) {
+      return redis.scard(kStarted(sessionId));
+    },
     async addResponse(sessionId, response) {
-      await redis.rpush(kResponses(sessionId), JSON.stringify(response));
+      // SADD is atomic, so concurrent retries of the same participant store one response.
+      const isNew = await redis.sadd(kSubmitted(sessionId), response.id);
+      if (!isNew) return false;
+      await redis
+        .pipeline()
+        .sadd(kStarted(sessionId), response.id)
+        .rpush(kResponses(sessionId), JSON.stringify(response))
+        .exec();
+      return true;
     },
     async listResponses(sessionId) {
       const items = await redis.lrange<string>(kResponses(sessionId), 0, -1);
@@ -67,7 +89,7 @@ function createRedisStore(redis: Redis): Store {
       return redis.llen(kResponses(sessionId));
     },
     async clearResponses(sessionId) {
-      await redis.del(kResponses(sessionId));
+      await redis.del(kResponses(sessionId), kStarted(sessionId), kSubmitted(sessionId));
     },
   };
 }
@@ -75,6 +97,7 @@ function createRedisStore(redis: Redis): Store {
 type FileDb = {
   sessions: Record<string, Session>;
   responses: Record<string, SessionResponse[]>;
+  started?: Record<string, string[]>;
 };
 
 function createFileStore(): Store {
@@ -122,12 +145,32 @@ function createFileStore(): Store {
       return mutate((db) => {
         delete db.sessions[id];
         delete db.responses[id];
+        delete db.started?.[id];
       });
     },
-    addResponse(sessionId, response) {
+    markStarted(sessionId, participantId) {
       return mutate((db) => {
-        (db.responses[sessionId] ??= []).push(response);
+        const list = ((db.started ??= {})[sessionId] ??= []);
+        if (!list.includes(participantId)) list.push(participantId);
       });
+    },
+    async countStarted(sessionId) {
+      const db = await read();
+      const ids = new Set([
+        ...(db.started?.[sessionId] ?? []),
+        ...(db.responses[sessionId] ?? []).map((r) => r.id),
+      ]);
+      return ids.size;
+    },
+    async addResponse(sessionId, response) {
+      let added = false;
+      await mutate((db) => {
+        const list = (db.responses[sessionId] ??= []);
+        if (list.some((r) => r.id === response.id)) return;
+        list.push(response);
+        added = true;
+      });
+      return added;
     },
     async listResponses(sessionId) {
       return (await read()).responses[sessionId] ?? [];
@@ -138,6 +181,7 @@ function createFileStore(): Store {
     clearResponses(sessionId) {
       return mutate((db) => {
         delete db.responses[sessionId];
+        delete db.started?.[sessionId];
       });
     },
   };

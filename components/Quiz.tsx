@@ -3,17 +3,21 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
-import { Drop, Loader, Logo } from "@/components/Logo";
+import { Drop, Loader, SiteHeader } from "@/components/Logo";
 import { JuiceGlass, JuiceProgress } from "@/components/JuiceProgress";
-import type { PublicSession } from "@/lib/types";
+import type { Feedback, PublicSession } from "@/lib/types";
 
 type Saved = {
   seed: number;
   index: number;
   answers: Record<string, string>;
   started: boolean;
-  result?: Record<string, string | null>;
+  /** Anonymous participant id from /start — makes submission idempotent. */
+  pid?: string;
+  feedback?: Feedback;
 };
+
+type Q = PublicSession["questions"][number];
 
 const LETTERS = "ABCDEFGHIJKL";
 
@@ -23,7 +27,15 @@ function storageKey(code: string) {
 function loadSaved(code: string): Saved | null {
   try {
     const raw = localStorage.getItem(storageKey(code));
-    return raw ? (JSON.parse(raw) as Saved) : null;
+    if (!raw) return null;
+    const s = JSON.parse(raw) as Saved & { result?: Record<string, string | null> };
+    // Migrate drafts saved by the first version (correct ids only, no explanations).
+    if (s.result && !s.feedback) {
+      s.feedback = Object.fromEntries(
+        Object.entries(s.result).map(([k, v]) => [k, { correctId: v, explanation: "" }]),
+      );
+    }
+    return s;
   } catch {
     return null;
   }
@@ -52,6 +64,10 @@ function buzz(ms = 12) {
   } catch {}
 }
 
+function plural(n: number, one: string, few: string, many: string) {
+  return n === 1 ? one : n >= 2 && n <= 4 ? few : many;
+}
+
 export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   const { code: rawCode } = use(params);
   const code = rawCode.toUpperCase();
@@ -59,8 +75,8 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   const [session, setSession] = useState<PublicSession | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<Saved | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -109,38 +125,54 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
     }));
   }, [session, state?.seed]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function start() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const r = await fetch(`/api/s/${encodeURIComponent(code)}/start`, { method: "POST" });
+      const data = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(data?.error ?? "Nepodařilo se začít");
+      update({ started: true, pid: data.pid });
+    } catch (e) {
+      // Starting offline is fine — the submit creates the participant anyway.
+      if ((e as Error).message.includes("nepřijímá")) setActionError((e as Error).message);
+      else update({ started: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submit() {
     if (!state) return;
-    setSubmitting(true);
-    setSubmitError(null);
+    setBusy(true);
+    setActionError(null);
     try {
       const r = await fetch(`/api/s/${encodeURIComponent(code)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: state.answers }),
+        body: JSON.stringify({ answers: state.answers, pid: state.pid }),
       });
       const data = await r.json().catch(() => null);
       if (!r.ok) throw new Error(data?.error ?? "Odeslání se nepovedlo");
-      update({ result: data.correct });
+      update({ feedback: data.feedback });
       buzz(30);
+      window.scrollTo({ top: 0 });
     } catch (e) {
-      setSubmitError((e as Error).message);
+      setActionError((e as Error).message === "Failed to fetch" ? "Spojení selhalo. Zkuste to prosím znovu." : (e as Error).message);
     } finally {
-      setSubmitting(false);
+      setBusy(false);
     }
   }
 
   if (error) {
     return (
       <Shell>
-        <div className="anim-rise flex flex-1 flex-col items-center justify-center gap-5 text-center">
-          <Drop className="h-14 w-11 text-pink" />
-          <h1 className="font-display text-3xl font-bold">{error}</h1>
-          <p className="max-w-sm text-muted">Zkontroluj prosím kód workshopu nebo naskenuj QR kód znovu.</p>
-          <Link href="/" className="btn btn-dark">
-            Zadat kód
+        <Message eyebrow="Workshop space" title={<>Na chvíli se<br />zastavíme.</>}>
+          <p>{error}. Zkontrolujte prosím kód workshopu nebo naskenujte QR kód znovu.</p>
+          <Link href="/" className="btn mt-4 w-fit">
+            Zadat kód ↗
           </Link>
-        </div>
+        </Message>
       </Shell>
     );
   }
@@ -148,15 +180,15 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (!session || !state) {
     return (
       <Shell>
-        <Loader />
+        <Loader label="Chystáme prostor…" />
       </Shell>
     );
   }
 
-  if (state.result) {
+  if (state.feedback) {
     return (
       <Shell>
-        <Results questions={questions} answers={state.answers} correct={state.result} />
+        <Results questions={questions} answers={state.answers} feedback={state.feedback} />
       </Shell>
     );
   }
@@ -164,11 +196,9 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (!session.open) {
     return (
       <Shell>
-        <div className="anim-rise flex flex-1 flex-col items-center justify-center gap-4 text-center">
-          <Drop className="h-14 w-11 text-muted" />
-          <h1 className="font-display text-3xl font-bold">Workshop je uzavřený</h1>
-          <p className="max-w-sm text-muted">Odpovědi teď nepřijímáme. Počkej na pokyn lektora.</p>
-        </div>
+        <Message eyebrow={session.name} title={<>Workshop je<br /><span className="text-pink">uzavřený.</span></>}>
+          <p>Tento workshop už lektor uzavřel. Pokud jste nestihli odpovědi odeslat, domluvte se s ním.</p>
+        </Message>
       </Shell>
     );
   }
@@ -176,11 +206,9 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (questions.length === 0) {
     return (
       <Shell>
-        <div className="anim-rise flex flex-1 flex-col items-center justify-center gap-4 text-center">
-          <Drop className="h-14 w-11 anim-drip text-mint" />
-          <h1 className="font-display text-3xl font-bold">Otázky se ještě chystají</h1>
-          <p className="max-w-sm text-muted">Zkus to za chvilku znovu.</p>
-        </div>
+        <Message eyebrow={session.name} title={<>Otázky se ještě<br /><span className="text-mint">chystají.</span></>}>
+          <p>Zkuste to prosím za chvilku znovu.</p>
+        </Message>
       </Shell>
     );
   }
@@ -188,7 +216,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (!state.started) {
     return (
       <Shell>
-        <Intro session={session} count={questions.length} onStart={() => update({ started: true })} />
+        <Intro session={session} count={questions.length} busy={busy} error={actionError} onStart={start} />
       </Shell>
     );
   }
@@ -198,158 +226,210 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   const answeredCount = questions.filter((x) => state.answers[x.id]).length;
   const isLast = index === questions.length - 1;
   const allAnswered = answeredCount === questions.length;
+  const missing = questions.length - answeredCount;
 
   return (
-    <Shell
-      top={
-        <div className="flex items-center gap-3">
-          <JuiceProgress value={answeredCount / questions.length} />
-          <span className="shrink-0 text-sm font-semibold tabular-nums text-muted">
-            {index + 1}/{questions.length}
+    <Shell>
+      <div className="flex flex-col gap-4 pt-2">
+        <div className="flex items-center justify-between gap-4">
+          <span className="eyebrow truncate">{session.name}</span>
+          <span className="shrink-0 text-xs text-muted tabular-nums">
+            {answeredCount} / {questions.length} odpovědí
           </span>
         </div>
-      }
-    >
+        <JuiceProgress value={answeredCount / questions.length} />
+        <StepDots
+          questions={questions}
+          answers={state.answers}
+          current={index}
+          onJump={(i) => update({ index: i })}
+        />
+      </div>
+
       <QuestionView
         key={q.id}
         number={index + 1}
-        text={q.text}
-        answers={q.answers}
+        total={questions.length}
+        q={q}
         selected={state.answers[q.id]}
         onSelect={(answerId) => {
           const first = !state.answers[q.id];
           update({ answers: { ...state.answers, [q.id]: answerId } });
           buzz();
           // Auto-advance on the first pick — feels snappy; changing an answer stays put.
-          if (first && !isLast) {
-            setTimeout(() => update({ index: index + 1 }), 650);
-          }
+          if (first && !isLast) setTimeout(() => update({ index: index + 1 }), 650);
         }}
       />
 
-      <div className="sticky bottom-0 -mx-5 mt-auto flex flex-col gap-3 bg-gradient-to-t from-bg via-bg to-bg/0 px-5 pt-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+      <div className="sticky bottom-0 -mx-5 mt-auto flex flex-col gap-3 bg-gradient-to-t from-bg via-bg to-bg/0 px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:-mx-8 sm:px-8">
         {isLast && !allAnswered && (
           <p className="text-center text-sm text-muted">
-            Ještě ti chybí odpovědět na {questions.length - answeredCount}{" "}
-            {questions.length - answeredCount === 1 ? "otázku" : "otázky"}.{" "}
+            Ještě nám chybí {missing} {plural(missing, "odpověď", "odpovědi", "odpovědí")}.{" "}
             <button
-              className="font-semibold text-ink underline"
+              className="font-semibold text-mint underline underline-offset-4"
               onClick={() => update({ index: questions.findIndex((x) => !state.answers[x.id]) })}
             >
-              Přejít
+              Doplnit
             </button>
           </p>
         )}
-        {submitError && <p className="text-center text-sm font-semibold text-pink">{submitError}</p>}
+        {actionError && <p className="text-center text-sm font-semibold text-pink">{actionError}</p>}
         <div className="flex items-center justify-between gap-3">
-          <button
-            className="btn btn-ghost btn-sm"
-            disabled={index === 0}
-            onClick={() => update({ index: index - 1 })}
-          >
+          <button className="btn btn-secondary" disabled={index === 0} onClick={() => update({ index: index - 1 })}>
             ← Zpět
           </button>
           {isLast ? (
-            <button className="btn btn-pink" disabled={!allAnswered || submitting} onClick={submit}>
-              {submitting ? "Odesílám…" : "Odeslat odpovědi"}
+            <button className="btn btn-pink" disabled={!allAnswered || busy} onClick={submit}>
+              {busy ? "Odesíláme…" : "Odeslat odpovědi ↗"}
             </button>
           ) : (
-            <button
-              className="btn"
-              disabled={!state.answers[q.id]}
-              onClick={() => update({ index: index + 1 })}
-            >
-              Další →
+            <button className="btn" disabled={!state.answers[q.id]} onClick={() => update({ index: index + 1 })}>
+              Další otázka →
             </button>
           )}
         </div>
+        <p className="text-xs text-muted">Svůj výběr můžete až do odeslání změnit.</p>
       </div>
     </Shell>
   );
 }
 
-function Shell({ children, top }: { children: React.ReactNode; top?: React.ReactNode }) {
+function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-5">
-      <header className="flex flex-col gap-4 pt-5 pb-4">
-        <Logo className="h-6 w-auto self-start" />
-        {top}
-      </header>
-      <div className="flex flex-1 flex-col">{children}</div>
-    </main>
+    <div className="flex min-h-dvh flex-col">
+      <SiteHeader />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-5 pt-6 sm:px-8 sm:pt-10">{children}</main>
+    </div>
+  );
+}
+
+function Message({
+  eyebrow,
+  title,
+  children,
+}: {
+  eyebrow: string;
+  title: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="anim-rise flex flex-1 flex-col justify-center gap-5 py-10">
+      <span className="eyebrow">{eyebrow}</span>
+      <h1 className="font-display text-5xl leading-[1.04] font-extrabold sm:text-6xl">{title}</h1>
+      <div className="flex max-w-xl flex-col text-lg leading-relaxed text-muted">{children}</div>
+    </div>
   );
 }
 
 function Intro({
   session,
   count,
+  busy,
+  error,
   onStart,
 }: {
   session: PublicSession;
   count: number;
+  busy: boolean;
+  error: string | null;
   onStart: () => void;
 }) {
   return (
-    <div className="relative flex flex-1 flex-col justify-center gap-6 py-10">
-      <Drop className="anim-float pointer-events-none absolute -top-2 right-2 h-24 w-20 text-mint/70" />
-      <Drop className="anim-float pointer-events-none absolute bottom-24 -left-3 h-12 w-10 text-pink/70 [animation-delay:-2s]" />
-      <p className="anim-rise text-sm font-semibold tracking-widest text-mint-strong uppercase">
-        Workshop
-      </p>
-      <h1 className="anim-rise font-display text-4xl leading-[1.05] font-extrabold sm:text-5xl [animation-delay:60ms]">
-        {session.name}
-      </h1>
-      {session.intro && (
-        <p className="anim-rise text-lg whitespace-pre-line text-ink/80 [animation-delay:120ms]">{session.intro}</p>
-      )}
-      <p className="anim-rise text-muted [animation-delay:160ms]">
-        Čeká tě <strong className="text-ink">{count}</strong>{" "}
-        {count === 1 ? "otázka" : count < 5 ? "otázky" : "otázek"}. U každé vyber jednu odpověď —
-        správné odpovědi uvidíš až na konci.
-      </p>
-      <div className="anim-rise [animation-delay:220ms]">
-        <button className="btn px-10 py-4 text-lg" onClick={onStart}>
-          Jdeme na to
+    <div className="flex flex-1 flex-col justify-center gap-8 py-8">
+      <div className="anim-rise flex flex-col gap-5">
+        <span className="eyebrow">Vítejte na workshopu</span>
+        <h1 className="font-display text-4xl leading-[1.05] font-extrabold sm:text-6xl">{session.name}</h1>
+        <p className="max-w-xl text-lg leading-relaxed whitespace-pre-line text-muted">
+          {session.intro ||
+            "Na chvíli se zastavte a vyberte odpověď, která podle vás nejlépe vystihuje danou situaci."}
+        </p>
+      </div>
+      <div className="card anim-rise flex flex-col gap-4 p-6 [animation-delay:100ms] sm:p-8">
+        <h2 className="font-display text-xl font-bold">Váš pohled nás zajímá.</h2>
+        <p className="leading-relaxed text-muted">
+          Čeká vás {count} {plural(count, "otázka", "otázky", "otázek")}. Ke každé vyberete jednu odpověď. Můžete se
+          vracet a svůj výběr měnit.
+        </p>
+        <p className="text-xs leading-relaxed text-muted">
+          Bez jména, bez časového limitu. Lektor uvidí souhrn skupiny. Po odeslání získáte vlastní vyhodnocení.
+        </p>
+        {error && <p className="text-sm font-semibold text-pink">{error}</p>}
+        <button className="btn mt-2 w-fit px-8" onClick={onStart} disabled={busy}>
+          {busy ? "Chvilku…" : "Pojďme na to ↗"}
         </button>
       </div>
     </div>
   );
 }
 
+function StepDots({
+  questions,
+  answers,
+  current,
+  onJump,
+}: {
+  questions: Q[];
+  answers: Record<string, string>;
+  current: number;
+  onJump: (i: number) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Otázky">
+      {questions.map((q, i) => {
+        const done = !!answers[q.id];
+        return (
+          <button
+            key={q.id}
+            role="tab"
+            aria-selected={i === current}
+            aria-label={`Otázka ${i + 1}${done ? ", zodpovězeno" : ""}`}
+            onClick={() => onJump(i)}
+            className={`grid h-7 w-7 place-items-center rounded-full text-[11px] font-semibold transition-all duration-200 ${
+              done ? "bg-mint text-ink" : "border border-line-strong text-muted hover:border-mint hover:text-paper"
+            } ${i === current ? "ring-2 ring-pink ring-offset-[3px] ring-offset-bg" : ""}`}
+          >
+            {i + 1}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function QuestionView({
   number,
-  text,
-  answers,
+  total,
+  q,
   selected,
   onSelect,
 }: {
   number: number;
-  text: string;
-  answers: { id: string; text: string }[];
+  total: number;
+  q: Q;
   selected?: string;
   onSelect: (id: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-6 pt-4 pb-2">
+    <section className="flex flex-col gap-6 pt-8 pb-2">
       <div className="anim-rise">
-        <p className="mb-2 text-sm font-semibold text-mint-strong">Otázka {number}</p>
-        <h2 className="font-display text-2xl leading-tight font-bold whitespace-pre-line sm:text-3xl">
-          {text}
-        </h2>
+        <span className="eyebrow mb-4">
+          Otázka {number} z {total}
+        </span>
+        <h1 className="font-display text-[1.75rem] leading-tight font-bold whitespace-pre-line sm:text-4xl">{q.text}</h1>
       </div>
-      <div className="flex flex-col gap-3" role="radiogroup">
-        {answers.map((a, i) => (
+      <div className="flex flex-col gap-3" role="radiogroup" aria-label="Vyberte jednu odpověď">
+        {q.answers.map((a, i) => (
           <AnswerCard
             key={a.id}
             letter={LETTERS[i]}
             text={a.text}
             selected={selected === a.id}
-            delay={80 + i * 60}
+            delay={60 + i * 60}
             onClick={() => onSelect(a.id)}
           />
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -383,35 +463,35 @@ function AnswerCard({
           }
           onClick();
         }}
-        className={`ju-corner group relative flex w-full items-start gap-4 overflow-hidden border-2 bg-surface p-4 text-left transition-[border-color,box-shadow] duration-200 sm:p-5 ${
+        className={`group relative flex w-full items-start gap-4 overflow-hidden rounded-[20px] p-5 text-left transition-[border-color,background-color,transform,box-shadow] duration-200 sm:p-6 ${
           selected
-            ? "border-ink shadow-[0_10px_30px_-14px_rgba(47,199,159,0.9)]"
-            : "border-transparent shadow-[0_2px_0_rgba(31,28,37,0.04)] hover:border-line"
+            ? "border-2 border-mint bg-surface shadow-[0_14px_40px_-22px_rgba(99,232,198,0.8)]"
+            : "border border-line-strong bg-surface hover:-translate-y-0.5 hover:border-mint/70 hover:bg-surface-2"
         }`}
       >
         {/* juice fill */}
         <span
           aria-hidden
-          className="absolute inset-0 origin-left bg-mint-soft"
+          className="absolute inset-0 origin-left bg-mint/[0.08]"
           style={{
             transform: selected ? "scaleX(1)" : "scaleX(0)",
             transition: "transform 450ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
         />
         <span
-          className={`relative grid h-9 w-9 shrink-0 place-items-center rounded-[3px_3px_12px_3px] font-display text-base font-bold transition-colors duration-200 ${
-            selected ? "bg-mint text-ink" : "bg-bg text-ink/70 group-hover:bg-mint-soft"
+          className={`relative grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-bold transition-colors duration-200 ${
+            selected ? "anim-pop bg-mint text-ink" : "border border-[#696271] text-muted group-hover:border-mint"
           }`}
         >
           {selected ? (
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
               <path className="check-draw" d="M5 12.5l4.5 4.5L19 7.5" />
             </svg>
           ) : (
             letter
           )}
         </span>
-        <span className="relative pt-1.5 text-[1.02rem] leading-snug whitespace-pre-line">{text}</span>
+        <span className="relative text-[15px] leading-relaxed whitespace-pre-line sm:text-base">{text}</span>
       </button>
     </div>
   );
@@ -420,118 +500,135 @@ function AnswerCard({
 function Results({
   questions,
   answers,
-  correct,
+  feedback,
 }: {
-  questions: { id: string; text: string; answers: { id: string; text: string }[] }[];
+  questions: Q[];
   answers: Record<string, string>;
-  correct: Record<string, string | null>;
+  feedback: Feedback;
 }) {
-  const scored = questions.filter((q) => correct[q.id]);
-  const right = scored.filter((q) => answers[q.id] === correct[q.id]).length;
+  const scored = questions.filter((q) => feedback[q.id]?.correctId);
+  const right = scored.filter((q) => answers[q.id] === feedback[q.id].correctId).length;
   const ratio = scored.length ? right / scored.length : 1;
-  const [shown, setShown] = useState(0);
   const [fill, setFill] = useState(0);
 
   useEffect(() => {
-    const t = setTimeout(() => setFill(ratio), 150);
-    // count-up
-    let n = 0;
-    const iv = setInterval(() => {
-      n++;
-      setShown(Math.min(n, right));
-      if (n >= right) clearInterval(iv);
-    }, Math.max(60, 900 / Math.max(1, right)));
-    // confetti in brand colours
+    const t = setTimeout(() => setFill(ratio), 250);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let c: ReturnType<typeof setTimeout> | undefined;
     if (!reduce) {
-      const colors = ["#63e8c6", "#ff67aa", "#1f1c25", "#ffffff"];
-      const fire = (x: number, angle: number) =>
-        confetti({ particleCount: 60, spread: 70, angle, origin: { x, y: 0.7 }, colors, scalar: 1.1 });
-      setTimeout(() => {
-        fire(0.15, 60);
-        fire(0.85, 120);
-      }, 500);
-      if (ratio >= 0.7) setTimeout(() => confetti({ particleCount: 120, spread: 120, origin: { y: 0.4 }, colors }), 1300);
+      c = setTimeout(
+        () =>
+          confetti({
+            particleCount: 70,
+            spread: 80,
+            origin: { y: 0.3 },
+            colors: ["#63e8c6", "#ff67aa", "#f7f7f2"],
+            scalar: 0.9,
+          }),
+        450,
+      );
     }
     return () => {
       clearTimeout(t);
-      clearInterval(iv);
+      if (c) clearTimeout(c);
     };
-  }, [right, ratio]);
-
-  const headline =
-    ratio >= 0.9 ? "Šťavnatý výkon!" : ratio >= 0.6 ? "Pěkná práce!" : ratio >= 0.3 ? "Dobrý základ!" : "Díky za odpovědi!";
+  }, [ratio]);
 
   return (
-    <div className="flex flex-col gap-8 pt-2 pb-12">
-      <section className="ju-corner-lg anim-rise relative flex items-center gap-5 overflow-hidden bg-ink p-6 text-white sm:p-8">
-        <JuiceGlass value={fill} className="h-36 w-auto shrink-0 sm:h-44" />
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-semibold tracking-widest text-mint uppercase">Hotovo</p>
-          <h1 className="font-display text-3xl leading-tight font-extrabold sm:text-4xl">{headline}</h1>
-          {scored.length > 0 && (
-            <p className="text-lg text-white/80">
-              Správně{" "}
-              <span className="font-display text-3xl font-extrabold text-mint tabular-nums">
-                {shown}
-              </span>{" "}
-              z {scored.length}
-            </p>
-          )}
-          <p className="text-sm text-white/60">Tvoje odpovědi jsme uložili. Teď se můžeš podívat, jak to bylo.</p>
+    <div className="flex flex-col gap-10 pb-16">
+      <section className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-5">
+          <div className="orb anim-pop grid h-[88px] w-[88px] place-items-center bg-mint text-ink">
+            <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path className="check-draw" d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </div>
+          <span className="eyebrow anim-rise">Odpovědi jsou odeslané</span>
+          <h1 className="anim-rise font-display text-5xl leading-[1.04] font-extrabold [animation-delay:60ms] sm:text-6xl">
+            Díky za
+            <br />
+            <span className="text-mint">váš pohled.</span>
+          </h1>
+          <p className="anim-rise max-w-xl text-lg leading-relaxed text-muted [animation-delay:120ms]">
+            Váš příspěvek je součástí souhrnu skupiny. Tady se můžete podívat na doporučené odpovědi a proč dávají
+            smysl.
+          </p>
         </div>
+        {scored.length > 0 && (
+          <div className="card anim-rise flex items-center gap-4 self-start p-5 [animation-delay:180ms] sm:self-auto">
+            <JuiceGlass value={fill} className="h-24 w-auto shrink-0" />
+            <p className="max-w-[11rem] text-sm leading-snug text-muted">
+              <span className="font-display block text-3xl font-extrabold text-paper tabular-nums">
+                {right} z {scored.length}
+              </span>
+              {plural(right, "odpověď odpovídá", "odpovědi odpovídají", "odpovědí odpovídá")} doporučenému řešení
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="font-display text-xl font-bold">Správné odpovědi</h2>
         {questions.map((q, i) => {
           const mine = answers[q.id];
-          const ok = correct[q.id];
-          const isRight = !!ok && mine === ok;
+          const fb = feedback[q.id] ?? { correctId: null, explanation: "" };
+          const matches = !!fb.correctId && mine === fb.correctId;
           return (
-            <article
-              key={q.id}
-              className="ju-corner anim-rise bg-surface p-5"
-              style={{ animationDelay: `${300 + i * 70}ms` }}
-            >
-              <div className="mb-3 flex items-start gap-3">
-                <span
-                  className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-sm font-bold ${
-                    !ok ? "bg-line text-muted" : isRight ? "bg-mint text-ink" : "bg-pink text-white"
-                  }`}
-                >
-                  {!ok ? i + 1 : isRight ? "✓" : "✕"}
-                </span>
-                <h3 className="font-semibold leading-snug whitespace-pre-line">{q.text}</h3>
+            <article key={q.id} className="card anim-rise p-5 sm:p-7" style={{ animationDelay: `${250 + i * 70}ms` }}>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <span className="eyebrow">Otázka {i + 1}</span>
+                {fb.correctId && (
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                      matches ? "bg-mint/15 text-mint" : "bg-pink/15 text-pink"
+                    }`}
+                  >
+                    {matches ? "Doporučená odpověď" : "Prostor pro další diskusi"}
+                  </span>
+                )}
               </div>
-              <ul className="flex flex-col gap-2 pl-10">
-                {q.answers
-                  .filter((a) => a.id === ok || a.id === mine)
-                  .map((a) => {
-                    const isCorrect = a.id === ok;
-                    return (
-                      <li
-                        key={a.id}
-                        className={`rounded-[3px_3px_12px_3px] px-3 py-2 text-sm leading-snug whitespace-pre-line ${
-                          isCorrect ? "bg-mint-soft" : "bg-pink-soft"
-                        }`}
-                      >
-                        <span className="mb-0.5 block text-xs font-semibold text-muted">
-                          {isCorrect && a.id === mine
-                            ? "Tvoje odpověď · správně"
-                            : isCorrect
-                              ? "Správná odpověď"
-                              : "Tvoje odpověď"}
-                        </span>
+              <h2 className="mb-4 text-lg leading-snug font-bold whitespace-pre-line">{q.text}</h2>
+              <div className="flex flex-col gap-2">
+                {q.answers.map((a) => {
+                  const isCorrect = a.id === fb.correctId;
+                  const isMine = a.id === mine;
+                  return (
+                    <div
+                      key={a.id}
+                      className={`flex gap-3 rounded-xl border px-4 py-3 text-[15px] leading-relaxed ${
+                        isCorrect
+                          ? "border-mint bg-mint/[0.05] text-paper"
+                          : isMine
+                            ? "border-pink bg-pink/[0.05] text-paper"
+                            : "border-line text-muted"
+                      }`}
+                    >
+                      <span aria-hidden className={isCorrect ? "text-mint" : isMine ? "text-pink" : ""}>
+                        {isCorrect ? "✓" : isMine ? "→" : "○"}
+                      </span>
+                      <div className="whitespace-pre-line">
                         {a.text}
-                      </li>
-                    );
-                  })}
-              </ul>
+                        {(isMine || isCorrect) && (
+                          <span className="mt-1 flex flex-wrap gap-x-3 text-xs font-bold">
+                            {isMine && <span>Vaše volba</span>}
+                            {isCorrect && <span className="text-mint">Doporučená odpověď</span>}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {fb.explanation && (
+                <p className="mt-5 leading-relaxed whitespace-pre-line text-muted">{fb.explanation}</p>
+              )}
             </article>
           );
         })}
       </section>
+
+      <p className="flex items-center gap-2 text-sm text-muted">
+        <Drop className="h-4 w-3 text-mint" /> Výsledky jsou anonymní. Lektor vidí jen souhrn celé skupiny.
+      </p>
     </div>
   );
 }

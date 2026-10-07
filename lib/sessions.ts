@@ -2,6 +2,7 @@ import "server-only";
 import { randomCode, randomId } from "./ids";
 import { store } from "./store";
 import type {
+  Feedback,
   PublicSession,
   Question,
   Session,
@@ -48,6 +49,7 @@ export function cloneQuestions(questions: Question[]): Question[] {
       text: q.text,
       answers: q.answers.map((a) => ({ id: idMap.get(a.id)!, text: a.text })),
       correctId: q.correctId ? (idMap.get(q.correctId) ?? null) : null,
+      explanation: q.explanation ?? "",
     };
   });
 }
@@ -66,11 +68,29 @@ export function sanitizeQuestions(input: unknown): Question[] {
       typeof q.correctId === "string" && answers.some((a) => a.id === q.correctId)
         ? q.correctId
         : null;
-    return { id: str(q.id, 40) || randomId(), text: str(q.text, 2000), answers, correctId };
+    return {
+      id: str(q.id, 40) || randomId(),
+      text: str(q.text, 2000),
+      answers,
+      correctId,
+      explanation: str(q.explanation, 4000),
+    };
   });
 }
 
-export function computeStats(session: Session, responses: SessionResponse[]): SessionStats {
+export function feedbackFor(session: Session): Feedback {
+  const out: Feedback = {};
+  for (const q of session.questions) {
+    out[q.id] = { correctId: q.correctId, explanation: q.explanation ?? "" };
+  }
+  return out;
+}
+
+export function computeStats(
+  session: Session,
+  responses: SessionResponse[],
+  startedCount: number,
+): SessionStats {
   const questions = session.questions.map((q) => {
     const counts = new Map<string, number>(q.answers.map((a) => [a.id, 0]));
     let answered = 0;
@@ -104,6 +124,8 @@ export function computeStats(session: Session, responses: SessionResponse[]): Se
   }
 
   return {
+    // Older data may predate start tracking, so never report fewer starts than submissions.
+    startedCount: Math.max(startedCount, responses.length),
     responseCount: responses.length,
     averageScore,
     lastResponseAt: responses.length ? Math.max(...responses.map((r) => r.createdAt)) : null,
@@ -112,40 +134,40 @@ export function computeStats(session: Session, responses: SessionResponse[]): Se
 }
 
 export function demoQuestions(): Question[] {
-  const make = (text: string, answers: string[], correctIndex: number): Question => {
+  const make = (text: string, answers: string[], correctIndex: number, explanation: string): Question => {
     const as = answers.map((t) => ({ id: randomId(), text: t }));
-    return { id: randomId(), text, answers: as, correctId: as[correctIndex].id };
+    return { id: randomId(), text, answers: as, correctId: as[correctIndex].id, explanation };
   };
   return [
     make(
-      "Co nejlépe vystihuje pojem „engagement“ zaměstnanců?",
+      "Kolega opakovaně nedodržuje termíny. Jak zahájíte rozhovor?",
       [
-        "Spokojenost zaměstnanců s platem a benefity, kterou firma pravidelně měří v ročním průzkumu.",
-        "Emoční a racionální závazek k firmě, který se projevuje ochotou dávat do práce víc, než je nezbytně nutné.",
-        "Počet firemních akcí a teambuildingů, kterých se zaměstnanec za rok zúčastní.",
-        "Míra, do jaké zaměstnanec dodržuje interní pravidla a procesy.",
+        "Řeknu mu, že je nespolehlivý a že se na něj tým nemůže spolehnout. Očekávám, že se po jasném upozornění zlepší.",
+        "Popíšu konkrétní situaci, pozorované chování a jeho dopad na tým. Potom se zeptám na jeho pohled a společně domluvíme další postup.",
+        "Přesunu jeho úkoly na někoho jiného a rozhovor odložím. Nechci zbytečně zvyšovat napětí v týmu.",
       ],
       1,
+      "Zpětná vazba se opírá o konkrétní situaci, chování a dopad. Otázka na pohled druhého otevírá prostor pro porozumění a dohodu.",
     ),
     make(
-      "Kdo má podle výzkumů největší vliv na engagement jednotlivce?",
+      "Zkušená kolegyně dostává úkol, který už několikrát úspěšně zvládla. Jak ji podpoříte?",
       [
-        "Generální ředitel a jeho komunikace směrem k celé firmě.",
-        "HR oddělení a nastavení benefitového programu.",
-        "Přímý nadřízený a kvalita každodenní spolupráce s ním.",
-        "Kolegové z jiných oddělení.",
+        "Domluvím s ní očekávaný výsledek, hranice rozhodování a kontrolní bod. Způsob provedení nechám na ní a nabídnu podporu, pokud ji bude potřebovat.",
+        "Sepíšu přesný postup a požádám ji, aby se před každým dalším krokem zastavila pro moje schválení. Tím snížím riziko chyby.",
+        "Úkol jí předám bez kontextu a termínu. Protože je zkušená, nepotřebuje ode mě žádné další informace.",
+      ],
+      0,
+      "Delegování spojuje jasný výsledek a dohodnuté mantinely s přiměřenou samostatností. Zkušenost člověka umožňuje méně direktivní vedení.",
+    ),
+    make(
+      "Člen týmu přichází s chybou, která může ovlivnit zákazníka. Co uděláte jako první?",
+      [
+        "Na nejbližší poradě ho uvedu jako příklad, jak se práce nemá dělat. Ostatní si pak dají větší pozor.",
+        "Řeknu mu, ať chybu vyřeší sám a příště přijde až s hotovým řešením. Každý musí nést odpovědnost.",
+        "Poděkuji, že chybu včas otevřel. Společně zjistíme dopad a domluvíme okamžité kroky, potom se vrátíme k příčině a prevenci.",
       ],
       2,
-    ),
-    make(
-      "Co je nejdůležitější udělat po vyhodnocení průzkumu engagementu?",
-      [
-        "Zveřejnit výsledky jen vedení, aby nedošlo ke zbytečnému neklidu.",
-        "Výsledky sdílet s týmy, společně vybrat priority a domluvit konkrétní kroky.",
-        "Počkat na další ročník průzkumu a porovnat trend.",
-        "Plošně zvýšit benefity všem zaměstnancům.",
-      ],
-      1,
+      "Včasné sdílení chyby umožňuje omezit její dopad. Bezpečí pro otevřenou komunikaci a odpovědnost za nápravu se vzájemně doplňují.",
     ),
   ];
 }

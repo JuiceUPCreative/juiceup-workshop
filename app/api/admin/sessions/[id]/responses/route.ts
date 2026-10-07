@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const session = await store.getSession(id);
   if (!session) return Response.json({ error: "Workshop nenalezen" }, { status: 404 });
-  const responses = await store.listResponses(id);
+  const [responses, started] = await Promise.all([store.listResponses(id), store.countStarted(id)]);
 
   if (req.nextUrl.searchParams.get("format") === "csv") {
     return new Response(toCsv(session.questions, responses), {
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     });
   }
 
-  return Response.json(computeStats(session, responses), {
+  return Response.json(computeStats(session, responses, started), {
     headers: { "Cache-Control": "no-store" },
   });
 }
@@ -35,7 +35,8 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
 }
 
 function toCsv(questions: Question[], responses: SessionResponse[]): string {
-  const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+  // Prefix cells that Excel would treat as formulas (CSV injection).
+  const esc = (v: string) => `"${(/^[=+\-@\t\r]/.test(v) ? `'${v}` : v).replace(/"/g, '""')}"`;
   const letter = (i: number) => String.fromCharCode(65 + i);
   const header = ["Čas", ...questions.map((q, i) => `${i + 1}. ${q.text}`), "Správně"];
   const rows = responses.map((r) => {

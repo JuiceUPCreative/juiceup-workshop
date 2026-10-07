@@ -12,6 +12,12 @@ export function randomId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** Unguessable participant id (128 bit). */
+export function participantId(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export function normalizeCode(code: string): string {
   return code.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
