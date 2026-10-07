@@ -1,0 +1,91 @@
+"use client";
+
+import { use, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { Drop, Loader, Logo } from "@/components/Logo";
+import type { Session } from "@/lib/types";
+import { api, plural } from "./api";
+import { useAuthError } from "./AdminGate";
+import { useOrigin } from "./useOrigin";
+import { Qr } from "./Qr";
+
+/** Full-screen view for the projector: QR code + live response counter. */
+export function Present({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const onError = useAuthError();
+  const [session, setSession] = useState<(Session & { responseCount: number }) | null>(null);
+  const origin = useOrigin();
+  const [bump, setBump] = useState(0);
+  const prev = useRef<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const tick = () =>
+      api<Session & { responseCount: number }>(`/api/admin/sessions/${id}`)
+        .then((s) => {
+          if (!alive) return;
+          if (prev.current !== null && s.responseCount > prev.current) setBump((b) => b + 1);
+          prev.current = s.responseCount;
+          setSession(s);
+        })
+        .catch(onError);
+    tick();
+    const iv = setInterval(tick, 3000);
+    return () => {
+      alive = false;
+      clearInterval(iv);
+    };
+  }, [id, onError]);
+
+  if (!session) return <Loader />;
+  const url = `${origin}/s/${session.code}`;
+  const displayUrl = url.replace(/^https?:\/\//, "");
+
+  return (
+    <main className="relative flex min-h-dvh flex-col overflow-hidden bg-ink text-white">
+      <Drop className="anim-float pointer-events-none absolute -top-10 left-[42%] h-48 w-40 text-mint/15" />
+      <Drop className="anim-float pointer-events-none absolute -bottom-8 left-8 h-32 w-24 text-pink/25 [animation-delay:-3s]" />
+
+      <header className="relative flex items-center justify-between px-8 pt-6 lg:px-14">
+        <Logo className="h-8 w-auto text-white" />
+        <Link href={`/admin/${id}`} className="text-sm text-white/50 hover:text-white">
+          Zavřít prezentaci ✕
+        </Link>
+      </header>
+
+      <div className="relative grid flex-1 items-center gap-10 px-8 py-10 lg:grid-cols-[1.1fr_1fr] lg:px-14">
+        <div className="flex flex-col gap-8">
+          <p className="text-lg font-semibold tracking-widest text-mint uppercase">{session.name}</p>
+          <h1 className="font-display text-5xl leading-[1.02] font-extrabold xl:text-7xl">
+            Naskenuj
+            <br />a <span className="text-mint">odpovídej</span>
+          </h1>
+          <div className="flex flex-col gap-2 text-white/70">
+            <span className="text-lg">nebo otevři</span>
+            <span className="font-display text-2xl font-bold break-all text-white xl:text-3xl">{displayUrl}</span>
+          </div>
+          <div key={bump} className="flex items-center gap-4">
+            <span
+              className={`font-display text-7xl leading-none font-extrabold text-mint tabular-nums ${bump ? "anim-pop" : ""}`}
+            >
+              {session.responseCount}
+            </span>
+            <span className="text-xl text-white/70">
+              {plural(session.responseCount, "odeslaná odpověď", "odeslané odpovědi", "odeslaných odpovědí")}
+            </span>
+          </div>
+          {!session.open && (
+            <p className="w-fit rounded-[3px_3px_14px_3px] bg-pink px-4 py-2 font-semibold">
+              Workshop je uzavřený — odpovědi se nepřijímají
+            </p>
+          )}
+        </div>
+        <div className="flex justify-center lg:justify-end">
+          <div className="ju-corner-lg w-full max-w-[min(80vh,560px)] bg-white p-8 shadow-[0_40px_120px_-40px_rgba(99,232,198,0.6)]">
+            <Qr value={url} className="aspect-square w-full" />
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}

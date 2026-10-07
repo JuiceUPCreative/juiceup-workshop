@@ -1,0 +1,256 @@
+/* Our component classes sit in their own layer, below Tailwind utilities. */
+@layer theme, base, ju, components, utilities;
+@import "tailwindcss";
+
+/* JuiceUP brand tokens (taken from juiceup.cz) */
+:root {
+  --ju-bg: #f0f0f2;
+  --ju-surface: #ffffff;
+  --ju-ink: #1f1c25;
+  --ju-muted: #6e6e73;
+  --ju-line: #e2e2e7;
+  --ju-mint: #63e8c6;
+  --ju-mint-strong: #2fc79f;
+  --ju-mint-soft: #dcfaf2;
+  --ju-pink: #ff67aa;
+  --ju-pink-soft: #ffe3ef;
+  --ju-corner: 22px;
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg: var(--ju-bg);
+  --color-surface: var(--ju-surface);
+  --color-ink: var(--ju-ink);
+  --color-muted: var(--ju-muted);
+  --color-line: var(--ju-line);
+  --color-mint: var(--ju-mint);
+  --color-mint-strong: var(--ju-mint-strong);
+  --color-mint-soft: var(--ju-mint-soft);
+  --color-pink: var(--ju-pink);
+  --color-pink-soft: var(--ju-pink-soft);
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-archivo), var(--font-inter), system-ui, sans-serif;
+}
+
+html,
+body {
+  background: var(--ju-bg);
+  color: var(--ju-ink);
+}
+
+body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.font-display {
+  font-family: var(--font-archivo), var(--font-inter), system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+/* In a layer so Tailwind utilities (bg-*, px-*, …) can override these. */
+@layer ju {
+  /* Signature JuiceUP shape: square corners, one soft bottom-right corner. */
+  .ju-corner {
+    border-radius: 4px 4px var(--ju-corner) 4px;
+  }
+  .ju-corner-lg {
+    border-radius: 6px 6px 36px 6px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.6rem;
+    font-weight: 700;
+    font-family: var(--font-archivo), var(--font-inter), sans-serif;
+    border-radius: 0 0 20px 0;
+    background: var(--ju-mint);
+    color: var(--ju-ink);
+    transition:
+      transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      background-color 160ms,
+      box-shadow 160ms,
+      opacity 160ms;
+    user-select: none;
+    cursor: pointer;
+  }
+  .btn:hover {
+    background: #52dfba;
+    box-shadow: 0 6px 20px -8px rgb(47 199 159 / 0.7);
+  }
+  .btn:active {
+    transform: scale(0.96);
+  }
+  .btn:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .btn-dark {
+    background: var(--ju-ink);
+    color: #fff;
+  }
+  .btn-dark:hover {
+    background: #2e2a36;
+    box-shadow: 0 6px 20px -8px rgb(31 28 37 / 0.6);
+  }
+  .btn-ghost {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px var(--ju-ink);
+  }
+  .btn-ghost:hover {
+    background: var(--ju-ink);
+    color: #fff;
+    box-shadow: none;
+  }
+  .btn-pink {
+    background: var(--ju-pink);
+    color: #fff;
+  }
+  .btn-pink:hover {
+    background: #ff52a0;
+    box-shadow: 0 6px 20px -8px rgb(255 103 170 / 0.7);
+  }
+  .btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 0 0 14px 0;
+  }
+
+  .input {
+    width: 100%;
+    background: var(--ju-surface);
+    border: 1.5px solid var(--ju-line);
+    border-radius: 4px 4px 16px 4px;
+    padding: 0.7rem 0.9rem;
+    outline: none;
+    transition:
+      border-color 150ms,
+      box-shadow 150ms;
+  }
+  .input:focus {
+    border-color: var(--ju-mint-strong);
+    box-shadow: 0 0 0 4px rgb(99 232 198 / 0.25);
+  }
+}
+
+/* ---------- Motion ---------- */
+
+@keyframes ju-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ju-pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ju-squish {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.97, 0.94);
+  }
+  70% {
+    transform: scale(1.015, 1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes ju-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes ju-wave {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes ju-drip {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  45% {
+    transform: translateY(-10px) scale(0.95, 1.05);
+  }
+  60% {
+    transform: translateY(0) scale(1.08, 0.92);
+  }
+}
+@keyframes ju-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(6deg);
+  }
+}
+@keyframes ju-shimmer {
+  from {
+    background-position: -200% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+
+.anim-rise {
+  animation: ju-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-pop {
+  animation: ju-pop 420ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.anim-squish {
+  animation: ju-squish 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.anim-drip {
+  animation: ju-drip 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.anim-float {
+  animation: ju-float 6s ease-in-out infinite;
+}
+.check-draw {
+  stroke-dasharray: 30;
+  stroke-dashoffset: 30;
+  animation: ju-draw 360ms 80ms cubic-bezier(0.65, 0, 0.35, 1) forwards;
+}
+.skeleton {
+  background: linear-gradient(90deg, #e6e6ea 25%, #f3f3f6 50%, #e6e6ea 75%);
+  background-size: 200% 100%;
+  animation: ju-shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
