@@ -131,7 +131,7 @@ function LaunchForm({
         </label>
         <select
           id="src"
-          className="input"
+          className="input h-12 py-0"
           value={source}
           onChange={(e) => {
             setSource(e.target.value);
@@ -159,7 +159,7 @@ function LaunchForm({
         </label>
         <input
           id="name"
-          className="input"
+          className="input h-12 py-0"
           placeholder="Leadership · tým Praha · 7. 10."
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -170,7 +170,7 @@ function LaunchForm({
         <label className="label" htmlFor="lang">
           Jazyk pro účastníky
         </label>
-        <select id="lang" className="input" value={language} onChange={(e) => setLanguage(e.target.value as Lang)}>
+        <select id="lang" className="input h-12 py-0" value={language} onChange={(e) => setLanguage(e.target.value as Lang)}>
           {LANGS.map((l) => (
             <option key={l.value} value={l.value}>
               {l.label}
@@ -178,7 +178,7 @@ function LaunchForm({
           ))}
         </select>
       </div>
-      <button className="btn" disabled={busy}>
+      <button className="btn h-12 py-0" disabled={busy}>
         {busy ? "…" : "Vytvořit workshop"}
       </button>
     </form>
