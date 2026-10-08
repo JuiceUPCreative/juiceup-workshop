@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { ThemeToggle } from "./ThemeToggle";
 
-/** Official JuiceUP wordmark; "UP" is coloured separately (mint by default). */
+/** Official JuiceUP wordmark, one colour (text colour) like on juiceup.cz; "UP" can be recoloured. */
 export function Logo({
   className = "h-7 w-auto",
-  upColor = "var(--ju-logo-up)",
+  upColor = "currentColor",
 }: {
   className?: string;
   upColor?: string;

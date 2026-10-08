@@ -31,7 +31,6 @@
   --ju-glow: rgb(99 232 198 / 0.09);
   --ju-skeleton-a: #28242f;
   --ju-skeleton-b: #332e3a;
-  --ju-logo-up: #63e8c6;
   color-scheme: dark;
 }
 
@@ -60,8 +59,6 @@
   --ju-glow: rgb(99 232 198 / 0.18);
   --ju-skeleton-a: #ebeaef;
   --ju-skeleton-b: #f6f6f8;
-  /* juiceup.cz shows the whole wordmark dark on light backgrounds */
-  --ju-logo-up: #1f1c25;
   color-scheme: light;
 }
 /* Mint/pink are too light for text on white; darken them in light mode only. */
