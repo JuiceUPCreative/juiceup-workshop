@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { randomId } from "@/lib/ids";
 import { type Lang, LANGS, normalizeLang } from "@/lib/i18n";
 import type { Question, Session } from "@/lib/types";
@@ -215,38 +216,43 @@ export function Editor({
         Přidat otázku
       </button>
 
-      {/* Save bar */}
-      <div
-        className={`fixed inset-x-0 bottom-0 z-40 transition-transform duration-300 ${
-          dirty || justSaved ? "translate-y-0" : "translate-y-full"
-        }`}
-        style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}
-      >
-        <div className="mx-auto mb-4 flex w-[calc(100%-2.5rem)] max-w-3xl items-center justify-between gap-4 rounded-full border border-line-strong bg-surface-2 py-2 pr-2 pl-6 text-paper shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]">
-          <span className="text-sm">
-            {justSaved && !dirty ? (
-              <span className="anim-pop inline-flex items-center gap-2 text-mint">✓ Uloženo</span>
-            ) : (
-              <>
-                Neuložené změny <span className="hidden text-muted sm:inline">· ⌘S</span>
-              </>
-            )}
-          </span>
-          <div className="flex gap-2">
-            {dirty && (
-              <button
-                className="btn btn-sm bg-transparent text-muted hover:bg-line hover:text-paper hover:shadow-none"
-                onClick={() => setDraft(JSON.parse(saved))}
-              >
-                Zahodit
-              </button>
-            )}
-            <button className="btn btn-sm" disabled={!dirty || saving} onClick={save}>
-              {saving ? "Ukládáme…" : "Uložit změny ✓"}
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* Save bar: portalled to <body>, because the editor's animated (transformed) wrappers
+          would otherwise make `position: fixed` stick to the wrapper instead of the screen. */}
+      {typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className={`fixed inset-x-0 bottom-0 z-40 transition-transform duration-300 ${
+              dirty || justSaved ? "translate-y-0" : "pointer-events-none translate-y-[calc(100%+2rem)]"
+            }`}
+            style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)" }}
+          >
+            <div className="mx-auto mb-4 flex w-[calc(100%-2.5rem)] max-w-3xl items-center justify-between gap-4 rounded-full border border-line-strong bg-surface-2 py-2 pr-2 pl-6 text-paper shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]">
+              <span className="text-sm">
+                {justSaved && !dirty ? (
+                  <span className="anim-pop inline-flex items-center gap-2 text-mint">✓ Uloženo</span>
+                ) : (
+                  <>
+                    Neuložené změny <span className="hidden text-muted sm:inline">· ⌘S</span>
+                  </>
+                )}
+              </span>
+              <div className="flex gap-2">
+                {dirty && (
+                  <button
+                    className="btn btn-sm bg-transparent text-muted hover:bg-line hover:text-paper hover:shadow-none"
+                    onClick={() => setDraft(JSON.parse(saved))}
+                  >
+                    Zahodit
+                  </button>
+                )}
+                <button className="btn btn-sm" disabled={!dirty || saving} onClick={save}>
+                  {saving ? "Ukládáme…" : "Uložit změny ✓"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
