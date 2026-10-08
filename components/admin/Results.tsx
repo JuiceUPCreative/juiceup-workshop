@@ -63,7 +63,9 @@ export function Results({ sessionId, onCountChange }: { sessionId: string; onCou
     const rb = b.rate ?? (sort === "worst" ? 2 : -1);
     return sort === "worst" ? ra - rb : rb - ra;
   });
-  const allOpen = stats.questions.length > 0 && stats.questions.every((q) => openIds.has(q.id));
+  // Polls are always expanded, so "expand all" only concerns scored questions.
+  const scoredQs = stats.questions.filter((q) => q.correctId);
+  const allOpen = scoredQs.length > 0 && scoredQs.every((q) => openIds.has(q.id));
   const toggle = (id: string) =>
     setOpenIds((s) => {
       const n = new Set(s);
@@ -117,12 +119,14 @@ export function Results({ sessionId, onCountChange }: { sessionId: string; onCou
 
       {stats.questions.length > 0 && (
         <div className="flex flex-col gap-3">
+          {scoredQs.length > 0 && (
           <button
             className="self-end text-xs font-semibold text-muted hover:text-paper"
-            onClick={() => setOpenIds(allOpen ? new Set() : new Set(stats.questions.map((q) => q.id)))}
+            onClick={() => setOpenIds(allOpen ? new Set() : new Set(scoredQs.map((q) => q.id)))}
           >
             {allOpen ? "Sbalit vše" : "Rozbalit vše"}
           </button>
+          )}
           {ordered.map((q) => (
             <QuestionCard
               key={q.id}
@@ -182,52 +186,76 @@ function QuestionCard({
   onToggle: () => void;
   isHardest: boolean;
 }) {
+  // No correct answer marked = poll: show the vote split right away instead of a success rate.
+  const isPoll = !q.correctId;
   const t = tone(q.rate);
+  const showAnswers = isPoll || open;
+  const top = Math.max(0, ...q.answers.map((a) => a.count));
+
+  const header = (
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <span className="eyebrow">
+          Otázka {number}
+          {isHardest && <span className="ml-2 text-pink">· nejhorší</span>}
+        </span>
+        {isPoll ? (
+          <span className="rounded-full bg-line px-2.5 py-1 text-[11px] font-semibold text-paper">Anketa</span>
+        ) : (
+          <strong className={`font-display text-xl font-extrabold tabular-nums ${t.text}`}>{pct(q.rate)}</strong>
+        )}
+      </div>
+      <h3 className={`text-lg leading-snug font-bold whitespace-pre-line ${isPoll ? "" : "group-hover:text-mint"}`}>
+        {q.text || <em className="text-muted">bez textu</em>}
+      </h3>
+    </>
+  );
+
   return (
     <article className="card p-5 sm:p-6">
-      <button className="group flex w-full flex-col gap-3 text-left" onClick={onToggle} aria-expanded={open}>
-        <div className="flex items-center justify-between gap-3">
-          <span className="eyebrow">
-            Otázka {number}
-            {isHardest && <span className="ml-2 text-pink">· nejhorší</span>}
+      {isPoll ? (
+        <div className="flex flex-col gap-3">
+          {header}
+          <span className="text-xs text-muted">
+            {q.answered} {q.answered === 1 ? "hlas" : q.answered >= 2 && q.answered <= 4 ? "hlasy" : "hlasů"}
           </span>
-          <strong className={`font-display text-xl font-extrabold tabular-nums ${t.text}`}>{pct(q.rate)}</strong>
         </div>
-        <h3 className="text-lg leading-snug font-bold whitespace-pre-line group-hover:text-mint">
-          {q.text || <em className="text-muted">bez textu</em>}
-        </h3>
-        <div className="h-2 overflow-hidden rounded-full bg-track-2">
-          <div
-            className={`h-full rounded-full ${t.bar}`}
-            style={{ width: `${(q.rate ?? 0) * 100}%`, transition: "width 900ms cubic-bezier(0.22, 1, 0.36, 1)" }}
-          />
-        </div>
-        <span className="flex items-center justify-between text-xs text-muted">
-          <span>
-            {q.correct} / {q.answered} správně
-            {!q.correctId && <span className="ml-2 font-semibold text-pink">bez správné odpovědi</span>}
+      ) : (
+        <button className="group flex w-full flex-col gap-3 text-left" onClick={onToggle} aria-expanded={open}>
+          {header}
+          <div className="h-2 overflow-hidden rounded-full bg-track-2">
+            <div
+              className={`h-full rounded-full ${t.bar}`}
+              style={{ width: `${(q.rate ?? 0) * 100}%`, transition: "width 900ms cubic-bezier(0.22, 1, 0.36, 1)" }}
+            />
+          </div>
+          <span className="flex items-center justify-between text-xs text-muted">
+            <span>
+              {q.correct} / {q.answered} správně
+            </span>
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4 transition-transform duration-200"
+              style={{ transform: open ? "rotate(180deg)" : "none" }}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </span>
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4 transition-transform duration-200"
-            style={{ transform: open ? "rotate(180deg)" : "none" }}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M6 9l6 6 6-6" />
-          </svg>
-        </span>
-      </button>
+        </button>
+      )}
 
-      {open && (
+      {showAnswers && (
         <div className="anim-rise mt-5 flex flex-col gap-4 border-t border-line pt-5">
           {q.answers.map((a, i) => {
             const correct = a.id === q.correctId;
             const share = q.answered ? a.count / q.answered : 0;
+            const bar = isPoll ? (a.count === top && top > 0 ? "bg-mint" : "bg-mint/45") : correct ? "bg-mint" : "bg-pink";
             return (
               <div key={a.id} className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2">
                 <div className="leading-relaxed whitespace-pre-line">
@@ -240,7 +268,7 @@ function QuestionCard({
                 </span>
                 <div className="col-span-2 h-2 overflow-hidden rounded-full bg-track-2">
                   <div
-                    className={`h-full rounded-full ${correct ? "bg-mint" : "bg-pink"}`}
+                    className={`h-full rounded-full ${bar}`}
                     style={{ width: `${share * 100}%`, transition: "width 700ms cubic-bezier(0.22,1,0.36,1)" }}
                   />
                 </div>

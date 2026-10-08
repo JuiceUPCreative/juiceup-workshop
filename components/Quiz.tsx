@@ -550,20 +550,19 @@ function Results({
         {questions.map((q, i) => {
           const mine = answers[q.id];
           const fb = feedback[q.id] ?? { correctId: null, explanation: "" };
-          const matches = !!fb.correctId && mine === fb.correctId;
+          const isPoll = !fb.correctId;
+          const matches = !isPoll && mine === fb.correctId;
           return (
             <article key={q.id} className="card anim-rise p-5 sm:p-7" style={{ animationDelay: `${250 + i * 70}ms` }}>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <span className="eyebrow">Otázka {i + 1}</span>
-                {fb.correctId && (
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-                      matches ? "bg-mint/15 text-mint" : "bg-pink/15 text-pink"
-                    }`}
-                  >
-                    {matches ? "Správně" : "Špatně"}
-                  </span>
-                )}
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                    isPoll ? "bg-line text-paper" : matches ? "bg-mint/15 text-mint" : "bg-pink/15 text-pink"
+                  }`}
+                >
+                  {isPoll ? "Anketa" : matches ? "Správně" : "Špatně"}
+                </span>
               </div>
               <h2 className="mb-4 text-lg leading-snug font-bold whitespace-pre-line">{q.text}</h2>
               <div className="flex flex-col gap-2">
@@ -576,13 +575,15 @@ function Results({
                       className={`flex gap-3 rounded-xl border px-4 py-3 text-[15px] leading-relaxed ${
                         isCorrect
                           ? "border-mint bg-mint/[0.05] text-paper"
-                          : isMine
-                            ? "border-pink bg-pink/[0.05] text-paper"
-                            : "border-line text-muted"
+                          : isMine && isPoll
+                            ? "border-paper/40 bg-surface-2 text-paper"
+                            : isMine
+                              ? "border-pink bg-pink/[0.05] text-paper"
+                              : "border-line text-muted"
                       }`}
                     >
-                      <span aria-hidden className={isCorrect ? "text-mint" : isMine ? "text-pink" : ""}>
-                        {isCorrect ? "✓" : isMine ? "→" : "○"}
+                      <span aria-hidden className={isCorrect ? "text-mint" : isMine && !isPoll ? "text-pink" : ""}>
+                        {isCorrect ? "✓" : isMine ? "●" : "○"}
                       </span>
                       <div className="whitespace-pre-line">
                         {a.text}

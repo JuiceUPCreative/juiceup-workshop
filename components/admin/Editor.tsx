@@ -89,7 +89,7 @@ export function Editor({
   const setQuestion = (id: string, fn: (q: Question) => Question) =>
     setQuestions((qs) => qs.map((q) => (q.id === id ? fn(q) : q)));
 
-  const missingCorrect = draft.questions.filter((q) => !q.correctId).length;
+  const pollCount = draft.questions.filter((q) => !q.correctId).length;
 
   return (
     <div className="flex flex-col gap-6 pb-32">
@@ -130,9 +130,9 @@ export function Editor({
         <h2 className="font-display text-2xl font-bold">
           Otázky <span className="text-muted">{draft.questions.length}</span>
         </h2>
-        {missingCorrect > 0 && (
-          <span className="rounded-full bg-pink/15 px-3 py-1 text-xs font-semibold text-pink">
-            {missingCorrect}× bez správné odpovědi
+        {pollCount > 0 && (
+          <span className="rounded-full bg-line px-3 py-1 text-xs font-semibold text-muted">
+            {pollCount}× anketa
           </span>
         )}
       </div>
@@ -257,7 +257,7 @@ function QuestionCard({
 }) {
   const [draggable, setDraggable] = useState(false);
   const [newAnswerId, setNewAnswerId] = useState<string | null>(null);
-  const noCorrect = !q.correctId;
+  const isPoll = !q.correctId;
 
   return (
     <article
@@ -309,16 +309,21 @@ function QuestionCard({
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:pl-12">
-        <p className={`text-xs ${noCorrect ? "font-semibold text-pink" : "text-muted"}`}>
-          {noCorrect ? "Klikněte na písmeno správné odpovědi" : "Kliknutím na písmeno změníte správnou odpověď"}
+        <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
+          {isPoll && (
+            <span className="rounded-full bg-line px-2 py-0.5 font-semibold text-paper">Anketa</span>
+          )}
+          {isPoll
+            ? "Bez správné odpovědi. Kliknutím na písmeno ji označíte."
+            : "Opětovným kliknutím na ✓ z otázky uděláte anketu."}
         </p>
         {q.answers.map((a, ai) => {
           const correct = q.correctId === a.id;
           return (
             <div key={a.id} className="group/answer flex items-start gap-2">
               <button
-                title={correct ? "Správná odpověď" : "Označit jako správnou"}
-                onClick={() => onChange((x) => ({ ...x, correctId: a.id }))}
+                title={correct ? "Zrušit správnou odpověď (anketa)" : "Označit jako správnou"}
+                onClick={() => onChange((x) => ({ ...x, correctId: x.correctId === a.id ? null : a.id }))}
                 className={`mt-2 grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold transition-all duration-200 ${
                   correct
                     ? "anim-pop bg-mint text-ink"
