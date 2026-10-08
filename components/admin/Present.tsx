@@ -4,6 +4,7 @@ import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Drop, Loader, Logo } from "@/components/Logo";
+import { dictionaries, normalizeLang } from "@/lib/i18n";
 import type { Session } from "@/lib/types";
 import { api } from "./api";
 import { useAuthError } from "./AdminGate";
@@ -49,6 +50,8 @@ export function Present({ params }: { params: Promise<{ id: string }> }) {
   }, [id, onError]);
 
   if (!session) return <Loader />;
+  // Projected for participants, so it follows the workshop language.
+  const t = dictionaries[normalizeLang(session.language)];
   const url = `${origin}/s/${session.code}`;
   const displayUrl = url.replace(/^https?:\/\//, "");
 
@@ -71,12 +74,12 @@ export function Present({ params }: { params: Promise<{ id: string }> }) {
         <div className="flex flex-col gap-8">
           <span className="eyebrow">JuiceUP · {session.name}</span>
           <h1 className="font-display text-5xl leading-[1.02] font-extrabold xl:text-7xl">
-            Naskenujte
+            {t.scan}
             <br />
-            <span className="text-mint">QR kód</span>
+            <span className="text-mint">{t.qrCode}</span>
           </h1>
           <div className="flex flex-col gap-2 text-muted">
-            <span className="text-lg">nebo</span>
+            <span className="text-lg">{t.or}</span>
             <span className="font-display text-2xl font-bold break-all text-paper xl:text-3xl">{displayUrl}</span>
           </div>
           <div key={bump} className="flex items-center gap-4">
@@ -85,14 +88,10 @@ export function Present({ params }: { params: Promise<{ id: string }> }) {
             >
               {session.responseCount}
             </span>
-            <span className="text-xl text-muted">
-              odesláno
-            </span>
+            <span className="text-xl text-muted">{t.submittedCount}</span>
           </div>
           {!session.open && (
-            <p className="note w-fit text-base!">
-              Sběr je uzavřený.
-            </p>
+            <p className="note w-fit text-base!">{t.collectionClosed}</p>
           )}
         </div>
         <div className="flex justify-center lg:justify-end">

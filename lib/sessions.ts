@@ -1,4 +1,5 @@
 import "server-only";
+import { type Lang, normalizeLang } from "./i18n";
 import { randomCode, randomId } from "./ids";
 import { store } from "./store";
 import type {
@@ -27,6 +28,8 @@ export function toPublic(s: Session): PublicSession {
   return {
     code: s.code,
     name: s.name,
+    // Workshops created before languages existed are Czech.
+    language: normalizeLang(s.language),
     intro: s.intro,
     open: s.open,
     shuffleAnswers: s.shuffleAnswers,
@@ -133,7 +136,51 @@ export function computeStats(
   };
 }
 
-export function demoQuestions(): Question[] {
+export function demoQuestions(lang: Lang = "cs"): Question[] {
+  return lang === "en" ? demoQuestionsEn() : demoQuestionsCs();
+}
+
+function makeQuestion(text: string, answers: string[], correctIndex: number, explanation: string): Question {
+  const as = answers.map((t) => ({ id: randomId(), text: t }));
+  return { id: randomId(), text, answers: as, correctId: as[correctIndex].id, explanation };
+}
+
+function demoQuestionsEn(): Question[] {
+  return [
+    makeQuestion(
+      "A colleague keeps missing deadlines. How do you open the conversation?",
+      [
+        "I tell them they are unreliable and that the team cannot count on them. I expect a clear warning to fix it.",
+        "I describe a specific situation, the behaviour I noticed and its impact on the team. Then I ask for their view and we agree on next steps together.",
+        "I move their tasks to someone else and postpone the conversation. I don't want to add tension to the team.",
+      ],
+      1,
+      "Good feedback is based on a concrete situation, behaviour and impact. Asking for the other person's view opens room for understanding and agreement.",
+    ),
+    makeQuestion(
+      "An experienced colleague gets a task she has already handled successfully several times. How do you support her?",
+      [
+        "We agree on the expected outcome, decision limits and a check-in point. I leave the approach to her and offer help if she needs it.",
+        "I write down the exact procedure and ask her to stop for my approval before every next step. That lowers the risk of mistakes.",
+        "I hand the task over without context or a deadline. She is experienced, so she needs nothing more from me.",
+      ],
+      0,
+      "Delegating combines a clear outcome and agreed boundaries with appropriate autonomy. Experience allows for a less directive style.",
+    ),
+    makeQuestion(
+      "A team member comes to you with a mistake that could affect a customer. What do you do first?",
+      [
+        "At the next meeting I use it as an example of how not to work. The others will be more careful.",
+        "I tell them to fix it on their own and next time come only with a finished solution. Everyone must take responsibility.",
+        "I thank them for raising it early. Together we assess the impact and agree on immediate steps, then come back to the cause and prevention.",
+      ],
+      2,
+      "Sharing a mistake early limits its impact. Psychological safety and ownership of the fix go hand in hand.",
+    ),
+  ];
+}
+
+function demoQuestionsCs(): Question[] {
   const make = (text: string, answers: string[], correctIndex: number, explanation: string): Question => {
     const as = answers.map((t) => ({ id: randomId(), text: t }));
     return { id: randomId(), text, answers: as, correctId: as[correctIndex].id, explanation };
@@ -176,6 +223,7 @@ export function newSession(
   code: string,
   name: string,
   questions: Question[],
+  language: Lang = "cs",
 ): Session {
   const now = Date.now();
   return {
@@ -183,6 +231,7 @@ export function newSession(
     code,
     name,
     intro: "",
+    language,
     questions,
     open: true,
     shuffleAnswers: true,

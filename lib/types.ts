@@ -1,3 +1,5 @@
+import type { Lang } from "./i18n";
+
 export type Answer = {
   id: string;
   text: string;
@@ -18,6 +20,8 @@ export type Session = {
   code: string;
   name: string;
   intro: string;
+  /** Language of the participant UI (admin is always Czech). */
+  language: Lang;
   questions: Question[];
   open: boolean;
   shuffleAnswers: boolean;
@@ -40,6 +44,7 @@ export type Feedback = Record<string, { correctId: string | null; explanation: s
 export type PublicSession = {
   code: string;
   name: string;
+  language: Lang;
   intro: string;
   open: boolean;
   shuffleAnswers: boolean;
@@ -48,7 +53,7 @@ export type PublicSession = {
 
 export type SessionSummary = Pick<
   Session,
-  "id" | "code" | "name" | "open" | "createdAt" | "updatedAt"
+  "id" | "code" | "name" | "open" | "language" | "createdAt" | "updatedAt"
 > & { questionCount: number; responseCount: number; startedCount: number };
 
 export type QuestionStats = {

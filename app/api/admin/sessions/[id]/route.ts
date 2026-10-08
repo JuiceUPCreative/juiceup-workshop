@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { isAdmin, unauthorized } from "@/lib/auth";
 import { sanitizeQuestions } from "@/lib/sessions";
+import { normalizeLang } from "@/lib/i18n";
 import { store } from "@/lib/store";
 
 type Ctx = RouteContext<"/api/admin/sessions/[id]">;
@@ -12,10 +13,14 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   const { id } = await ctx.params;
   const session = await store.getSession(id);
   if (!session) return notFound();
-  return Response.json({ ...session, responseCount: await store.countResponses(id) });
+  return Response.json({
+    ...session,
+    language: normalizeLang(session.language),
+    responseCount: await store.countResponses(id),
+  });
 }
 
-/** Partial update: any of { name, intro, open, shuffleAnswers, questions }. */
+/** Partial update: any of { name, intro, language, open, shuffleAnswers, questions }. */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (!(await isAdmin())) return unauthorized();
   const { id } = await ctx.params;
@@ -27,6 +32,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
   if (typeof body.intro === "string") session.intro = body.intro.slice(0, 2000);
   if (typeof body.open === "boolean") session.open = body.open;
   if (typeof body.shuffleAnswers === "boolean") session.shuffleAnswers = body.shuffleAnswers;
+  session.language = normalizeLang(body.language ?? session.language);
   if (body.questions !== undefined) session.questions = sanitizeQuestions(body.questions);
   session.updatedAt = Date.now();
 

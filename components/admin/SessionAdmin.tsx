@@ -7,7 +7,8 @@ import { Loader } from "@/components/Logo";
 import type { Session } from "@/lib/types";
 import { api } from "./api";
 import { useAuthError } from "./AdminGate";
-import { StatusBadge } from "./Dashboard";
+import { LangBadge, StatusBadge } from "./Dashboard";
+import { normalizeLang } from "@/lib/i18n";
 import { Editor } from "./Editor";
 import { downloadQrPng, downloadQrSvg, isLocalOrigin, Qr } from "./Qr";
 import { Results } from "./Results";
@@ -84,6 +85,7 @@ export function SessionAdmin({ params }: { params: Promise<{ id: string }> }) {
             <div className="mb-2 flex items-center gap-3">
               <StatusBadge open={session.open} />
               <span className="font-mono text-xs tracking-[0.2em] text-muted">{session.code}</span>
+              <LangBadge lang={normalizeLang(session.language)} />
             </div>
             <h1 className="font-display text-3xl leading-tight font-extrabold break-words sm:text-4xl">
               {session.name}

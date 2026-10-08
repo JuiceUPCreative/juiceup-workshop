@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { type Lang, LANGS } from "@/lib/i18n";
 import type { Session, SessionSummary } from "@/lib/types";
 import { api, formatDate, plural } from "./api";
 import { useAuthError } from "./AdminGate";
@@ -60,7 +61,10 @@ export function Dashboard() {
                 {formatDate(s.createdAt)} · {s.questionCount} {plural(s.questionCount, "otázka", "otázky", "otázek")}
               </p>
               <div className="mt-auto flex items-end justify-between gap-3 border-t border-line pt-4">
-                <span className="font-mono text-xs tracking-[0.2em] text-muted">{s.code}</span>
+                <span className="flex items-center gap-2 font-mono text-xs tracking-[0.2em] text-muted">
+                  {s.code}
+                  <LangBadge lang={s.language} />
+                </span>
                 <span className="text-right text-xs text-muted">
                   <span className="font-display mr-1 text-2xl font-extrabold text-mint tabular-nums">
                     {s.responseCount}
@@ -100,16 +104,17 @@ function LaunchForm({
 }) {
   const [name, setName] = useState("");
   const [source, setSource] = useState<string>(sessions.length ? `copy:${sessions[0].id}` : "demo");
+  const [language, setLanguage] = useState<Lang>(sessions[0]?.language ?? "cs");
   const [busy, setBusy] = useState(false);
 
   return (
     <form
-      className="card anim-rise grid gap-4 p-5 [animation-delay:80ms] sm:p-7 lg:grid-cols-[1fr_1fr_auto] lg:items-end"
+      className="card anim-rise grid gap-4 p-5 [animation-delay:80ms] sm:p-7 lg:grid-cols-[1fr_1fr_10rem_auto] lg:items-end"
       onSubmit={async (e) => {
         e.preventDefault();
         setBusy(true);
         try {
-          const body: Record<string, unknown> = { name };
+          const body: Record<string, unknown> = { name, language };
           if (source === "demo") body.demo = true;
           else if (source.startsWith("copy:")) body.copyFrom = source.slice(5);
           onCreated(await api<Session>("/api/admin/sessions", { method: "POST", json: body }));
@@ -124,7 +129,17 @@ function LaunchForm({
         <label className="label" htmlFor="src">
           Otázky
         </label>
-        <select id="src" className="input" value={source} onChange={(e) => setSource(e.target.value)}>
+        <select
+          id="src"
+          className="input"
+          value={source}
+          onChange={(e) => {
+            setSource(e.target.value);
+            // A copied workshop keeps its language by default.
+            const src = sessions.find((s) => `copy:${s.id}` === e.target.value);
+            if (src) setLanguage(src.language);
+          }}
+        >
           {sessions.length > 0 && (
             <optgroup label="Kopie z workshopu">
               {sessions.map((s) => (
@@ -151,9 +166,29 @@ function LaunchForm({
           maxLength={150}
         />
       </div>
+      <div>
+        <label className="label" htmlFor="lang">
+          Jazyk pro účastníky
+        </label>
+        <select id="lang" className="input" value={language} onChange={(e) => setLanguage(e.target.value as Lang)}>
+          {LANGS.map((l) => (
+            <option key={l.value} value={l.value}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+      </div>
       <button className="btn" disabled={busy}>
         {busy ? "…" : "Vytvořit workshop"}
       </button>
     </form>
+  );
+}
+
+export function LangBadge({ lang }: { lang: Lang }) {
+  return (
+    <span className="rounded border border-line-strong px-1.5 py-0.5 font-sans text-[10px] font-bold tracking-normal text-muted">
+      {lang === "en" ? "EN" : "CZ"}
+    </span>
   );
 }

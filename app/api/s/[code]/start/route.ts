@@ -7,9 +7,9 @@ import { store } from "@/lib/store";
 export async function POST(_req: NextRequest, ctx: RouteContext<"/api/s/[code]/start">) {
   const { code } = await ctx.params;
   const session = await getSessionByCode(normalizeCode(code));
-  if (!session) return Response.json({ error: "Workshop nenalezen" }, { status: 404 });
+  if (!session) return Response.json({ error: "Workshop nenalezen", code: "not_found" }, { status: 404 });
   if (!session.open) {
-    return Response.json({ error: "Workshop už nepřijímá odpovědi" }, { status: 403 });
+    return Response.json({ error: "Workshop už nepřijímá odpovědi", code: "closed" }, { status: 403 });
   }
   const pid = participantId();
   await store.markStarted(session.id, pid);

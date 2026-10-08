@@ -3,7 +3,7 @@ import { normalizeCode, participantId } from "@/lib/ids";
 import { feedbackFor, getSessionByCode, toPublic } from "@/lib/sessions";
 import { store } from "@/lib/store";
 
-const notFound = () => Response.json({ error: "Workshop nenalezen" }, { status: 404 });
+const notFound = () => Response.json({ error: "Workshop nenalezen", code: "not_found" }, { status: 404 });
 
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/s/[code]">) {
   const { code } = await ctx.params;
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/s/[code]">)
   const session = await getSessionByCode(normalizeCode(code));
   if (!session) return notFound();
   if (!session.open) {
-    return Response.json({ error: "Workshop už nepřijímá odpovědi" }, { status: 403 });
+    return Response.json({ error: "Workshop už nepřijímá odpovědi", code: "closed" }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as { answers?: unknown; pid?: unknown } | null;
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/s/[code]">)
   }
   const required = toPublic(session).questions;
   if (required.some((q) => !answers[q.id])) {
-    return Response.json({ error: "Odpovězte prosím na všechny otázky." }, { status: 400 });
+    return Response.json({ error: "Odpovězte prosím na všechny otázky.", code: "incomplete" }, { status: 400 });
   }
 
   // Idempotent: a retried or repeated submission never adds a second result.

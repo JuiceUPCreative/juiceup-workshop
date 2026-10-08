@@ -1,10 +1,11 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, use, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
 import { Loader, SiteHeader } from "@/components/Logo";
 import { JuiceGlass, JuiceProgress } from "@/components/JuiceProgress";
+import { browserLang, type Dict, dictionaries, type PublicErrorCode } from "@/lib/i18n";
 import type { Feedback, PublicSession } from "@/lib/types";
 
 type Saved = {
@@ -64,8 +65,19 @@ function buzz(ms = 12) {
   } catch {}
 }
 
-function plural(n: number, one: string, few: string, many: string) {
-  return n === 1 ? one : n >= 2 && n <= 4 ? few : many;
+/** Participant texts in the workshop's language. */
+const T = createContext<Dict>(dictionaries.cs);
+const useT = () => useContext(T);
+
+class ApiError extends Error {
+  constructor(public code: PublicErrorCode | "network" | "unknown") {
+    super(code);
+  }
+}
+
+async function apiError(r: Response): Promise<ApiError> {
+  const data = await r.json().catch(() => null);
+  return new ApiError(data?.code ?? "unknown");
 }
 
 export function Quiz({ params }: { params: Promise<{ code: string }> }) {
@@ -73,16 +85,21 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   const code = rawCode.toUpperCase();
 
   const [session, setSession] = useState<PublicSession | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError["code"] | null>(null);
   const [state, setState] = useState<Saved | null>(null);
   const [busy, setBusy] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<ApiError["code"] | null>(null);
+  const t = dictionaries[session?.language ?? (error ? browserLang() : "cs")];
+
+  useEffect(() => {
+    if (session) document.documentElement.lang = session.language;
+  }, [session]);
 
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/s/${encodeURIComponent(code)}`, { cache: "no-store" })
       .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json().catch(() => null))?.error ?? "Chyba načítání");
+        if (!r.ok) throw await apiError(r);
         return r.json() as Promise<PublicSession>;
       })
       .then((s) => {
@@ -97,7 +114,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
           },
         );
       })
-      .catch((e: Error) => !cancelled && setError(e.message));
+      .catch((e) => !cancelled && setError(e instanceof ApiError ? e.code : "network"));
     return () => {
       cancelled = true;
     };
@@ -130,12 +147,12 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
     setActionError(null);
     try {
       const r = await fetch(`/api/s/${encodeURIComponent(code)}/start`, { method: "POST" });
-      const data = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(data?.error ?? "Nepodařilo se začít");
+      if (!r.ok) throw await apiError(r);
+      const data = await r.json();
       update({ started: true, pid: data.pid });
     } catch (e) {
       // Starting offline is fine — the submit creates the participant anyway.
-      if ((e as Error).message.includes("nepřijímá")) setActionError((e as Error).message);
+      if (e instanceof ApiError && e.code === "closed") setActionError("closed");
       else update({ started: true });
     } finally {
       setBusy(false);
@@ -152,13 +169,13 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers: state.answers, pid: state.pid }),
       });
-      const data = await r.json().catch(() => null);
-      if (!r.ok) throw new Error(data?.error ?? "Odeslání se nepovedlo");
+      if (!r.ok) throw await apiError(r);
+      const data = await r.json();
       update({ feedback: data.feedback });
       buzz(30);
       window.scrollTo({ top: 0 });
     } catch (e) {
-      setActionError((e as Error).message === "Failed to fetch" ? "Spojení selhalo. Zkuste to prosím znovu." : (e as Error).message);
+      setActionError(e instanceof ApiError ? e.code : "network");
     } finally {
       setBusy(false);
     }
@@ -166,11 +183,11 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
 
   if (error) {
     return (
-      <Shell>
-        <Message eyebrow="Chyba" title={error}>
-          <p>Zkontrolujte kód nebo naskenujte QR znovu.</p>
+      <Shell t={t}>
+        <Message eyebrow={t.errorEyebrow} title={error === "network" || error === "unknown" ? t.loadFailed : t.errors[error]}>
+          <p>{t.checkCode}</p>
           <Link href="/" className="btn mt-4 w-fit">
-            Zadat kód ↗
+            {t.enterCode}
           </Link>
         </Message>
       </Shell>
@@ -179,15 +196,15 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
 
   if (!session || !state) {
     return (
-      <Shell>
-        <Loader />
+      <Shell t={t}>
+        <Loader label={t.loading} />
       </Shell>
     );
   }
 
   if (state.feedback) {
     return (
-      <Shell>
+      <Shell t={t}>
         <Results questions={questions} answers={state.answers} feedback={state.feedback} />
       </Shell>
     );
@@ -195,9 +212,9 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
 
   if (!session.open) {
     return (
-      <Shell>
-        <Message eyebrow={session.name} title={<span className="text-pink">Workshop je uzavřený.</span>}>
-          <p>Odpovědi už nejde odeslat.</p>
+      <Shell t={t}>
+        <Message eyebrow={session.name} title={<span className="text-pink">{t.closedTitle}</span>}>
+          <p>{t.closedText}</p>
         </Message>
       </Shell>
     );
@@ -205,9 +222,9 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
 
   if (questions.length === 0) {
     return (
-      <Shell>
-        <Message eyebrow={session.name} title="Zatím tu nejsou otázky.">
-          <p>Zkuste to za chvíli znovu.</p>
+      <Shell t={t}>
+        <Message eyebrow={session.name} title={t.noQuestions}>
+          <p>{t.tryLater}</p>
         </Message>
       </Shell>
     );
@@ -215,7 +232,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
 
   if (!state.started) {
     return (
-      <Shell>
+      <Shell t={t}>
         <Intro session={session} count={questions.length} busy={busy} error={actionError} onStart={start} />
       </Shell>
     );
@@ -229,12 +246,12 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   const missing = questions.length - answeredCount;
 
   return (
-    <Shell>
+    <Shell t={t}>
       <div className="flex flex-col gap-4 pt-2">
         <div className="flex items-center justify-between gap-4">
           <span className="eyebrow truncate">{session.name}</span>
           <span className="shrink-0 text-xs text-muted tabular-nums">
-            {answeredCount} / {questions.length} odpovědí
+            {t.answeredOf(answeredCount, questions.length)}
           </span>
         </div>
         <JuiceProgress value={answeredCount / questions.length} />
@@ -264,27 +281,31 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
       <div className="sticky bottom-0 -mx-5 mt-auto flex flex-col gap-3 bg-gradient-to-t from-bg via-bg to-bg/0 px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:-mx-8 sm:px-8">
         {isLast && !allAnswered && (
           <p className="text-center text-sm text-muted">
-            Chybí {missing} {plural(missing, "odpověď", "odpovědi", "odpovědí")}.{" "}
+            {t.missing(missing)}{" "}
             <button
               className="font-semibold text-mint underline underline-offset-4"
               onClick={() => update({ index: questions.findIndex((x) => !state.answers[x.id]) })}
             >
-              Doplnit
+              {t.goToMissing}
             </button>
           </p>
         )}
-        {actionError && <p className="text-center text-sm font-semibold text-pink">{actionError}</p>}
+        {actionError && (
+          <p className="text-center text-sm font-semibold text-pink">
+            {actionError === "network" || actionError === "unknown" ? t.network : t.errors[actionError]}
+          </p>
+        )}
         <div className="flex items-center justify-between gap-3">
           <button className="btn btn-secondary" disabled={index === 0} onClick={() => update({ index: index - 1 })}>
-            ← Zpět
+            {t.back}
           </button>
           {isLast ? (
             <button className="btn btn-pink" disabled={!allAnswered || busy} onClick={submit}>
-              {busy ? "Odesílám…" : "Odeslat"}
+              {busy ? t.submitting : t.submit}
             </button>
           ) : (
             <button className="btn" disabled={!state.answers[q.id]} onClick={() => update({ index: index + 1 })}>
-              Další →
+              {t.next}
             </button>
           )}
         </div>
@@ -293,12 +314,14 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, t }: { children: React.ReactNode; t: Dict }) {
   return (
+    <T.Provider value={t}>
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-5 pt-6 sm:px-8 sm:pt-10">{children}</main>
     </div>
+    </T.Provider>
   );
 }
 
@@ -330,19 +353,24 @@ function Intro({
   session: PublicSession;
   count: number;
   busy: boolean;
-  error: string | null;
+  error: ApiError["code"] | null;
   onStart: () => void;
 }) {
+  const t = useT();
   return (
     <div className="anim-rise flex flex-1 flex-col justify-center gap-6 py-8">
       <h1 className="font-display text-4xl leading-[1.05] font-extrabold sm:text-6xl">{session.name}</h1>
       {session.intro && <p className="max-w-xl text-lg leading-relaxed whitespace-pre-line text-muted">{session.intro}</p>}
       <p className="text-muted">
-        {count} {plural(count, "otázka", "otázky", "otázek")} · u každé vyberte jednu odpověď
+        {t.introCount(count)}
       </p>
-      {error && <p className="text-sm font-semibold text-pink">{error}</p>}
+      {error && (
+        <p className="text-sm font-semibold text-pink">
+          {error === "network" || error === "unknown" ? t.network : t.errors[error]}
+        </p>
+      )}
       <button className="btn w-fit px-10" onClick={onStart} disabled={busy}>
-        {busy ? "…" : "Začít"}
+        {busy ? "…" : t.start}
       </button>
     </div>
   );
@@ -359,8 +387,9 @@ function StepDots({
   current: number;
   onJump: (i: number) => void;
 }) {
+  const t = useT();
   return (
-    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Otázky">
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label={t.questionsAria}>
       {questions.map((q, i) => {
         const done = !!answers[q.id];
         return (
@@ -368,7 +397,7 @@ function StepDots({
             key={q.id}
             role="tab"
             aria-selected={i === current}
-            aria-label={`Otázka ${i + 1}${done ? ", zodpovězeno" : ""}`}
+            aria-label={t.stepAria(i + 1, done)}
             onClick={() => onJump(i)}
             className={`grid h-7 w-7 place-items-center rounded-full text-[11px] font-semibold transition-all duration-200 ${
               done ? "bg-mint text-ink" : "border border-line-strong text-muted hover:border-mint hover:text-paper"
@@ -395,15 +424,16 @@ function QuestionView({
   selected?: string;
   onSelect: (id: string) => void;
 }) {
+  const t = useT();
   return (
     <section className="flex flex-col gap-6 pt-8 pb-2">
       <div className="anim-rise">
         <span className="eyebrow mb-4">
-          Otázka {number} z {total}
+          {t.questionOf(number, total)}
         </span>
         <h1 className="font-display text-[1.75rem] leading-tight font-bold whitespace-pre-line sm:text-4xl">{q.text}</h1>
       </div>
-      <div className="flex flex-col gap-3" role="radiogroup" aria-label="Vyberte jednu odpověď">
+      <div className="flex flex-col gap-3" role="radiogroup" aria-label={t.pickOne}>
         {q.answers.map((a, i) => (
           <AnswerCard
             key={a.id}
@@ -492,6 +522,7 @@ function Results({
   answers: Record<string, string>;
   feedback: Feedback;
 }) {
+  const t = useT();
   const scored = questions.filter((q) => feedback[q.id]?.correctId);
   const right = scored.filter((q) => answers[q.id] === feedback[q.id].correctId).length;
   const ratio = scored.length ? right / scored.length : 1;
@@ -530,7 +561,7 @@ function Results({
             </svg>
           </div>
           <h1 className="anim-rise font-display text-5xl leading-[1.04] font-extrabold [animation-delay:60ms] sm:text-6xl">
-            Odesláno
+            {t.submitted}
           </h1>
         </div>
         {scored.length > 0 && (
@@ -538,9 +569,9 @@ function Results({
             <JuiceGlass value={fill} className="h-24 w-auto shrink-0" />
             <p className="max-w-[11rem] text-sm leading-snug text-muted">
               <span className="font-display block text-3xl font-extrabold text-paper tabular-nums">
-                {right} z {scored.length}
+                {t.scoreOf(right, scored.length)}
               </span>
-              správně
+              {t.correctSuffix}
             </p>
           </div>
         )}
@@ -555,13 +586,13 @@ function Results({
           return (
             <article key={q.id} className="card anim-rise p-5 sm:p-7" style={{ animationDelay: `${250 + i * 70}ms` }}>
               <div className="mb-4 flex items-center justify-between gap-3">
-                <span className="eyebrow">Otázka {i + 1}</span>
+                <span className="eyebrow">{t.question(i + 1)}</span>
                 <span
                   className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
                     isPoll ? "bg-line text-paper" : matches ? "bg-mint/15 text-mint" : "bg-pink/15 text-pink"
                   }`}
                 >
-                  {isPoll ? "Anketa" : matches ? "Správně" : "Špatně"}
+                  {isPoll ? t.poll : matches ? t.right : t.wrong}
                 </span>
               </div>
               <h2 className="mb-4 text-lg leading-snug font-bold whitespace-pre-line">{q.text}</h2>
@@ -589,8 +620,8 @@ function Results({
                         {a.text}
                         {(isMine || isCorrect) && (
                           <span className="mt-1 flex flex-wrap gap-x-3 text-xs font-bold">
-                            {isMine && <span>Vaše volba</span>}
-                            {isCorrect && <span className="text-mint">Správná odpověď</span>}
+                            {isMine && <span>{t.yourChoice}</span>}
+                            {isCorrect && <span className="text-mint">{t.correctAnswer}</span>}
                           </span>
                         )}
                       </div>

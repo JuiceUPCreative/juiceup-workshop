@@ -2,16 +2,23 @@
 
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { randomId } from "@/lib/ids";
+import { type Lang, LANGS, normalizeLang } from "@/lib/i18n";
 import type { Question, Session } from "@/lib/types";
 import { api, plural } from "./api";
 import { useAuthError } from "./AdminGate";
 
-type Draft = Pick<Session, "name" | "intro" | "shuffleAnswers" | "questions">;
+type Draft = Pick<Session, "name" | "intro" | "language" | "shuffleAnswers" | "questions">;
 
 const LETTERS = "ABCDEFGHIJKL";
 
 function draftOf(s: Session): Draft {
-  return { name: s.name, intro: s.intro, shuffleAnswers: s.shuffleAnswers, questions: s.questions };
+  return {
+    name: s.name,
+    intro: s.intro,
+    language: normalizeLang(s.language),
+    shuffleAnswers: s.shuffleAnswers,
+    questions: s.questions,
+  };
 }
 
 function blankQuestion(): Question {
@@ -94,14 +101,30 @@ export function Editor({
   return (
     <div className="flex flex-col gap-6 pb-32">
       <section className="card grid gap-5 p-5 sm:p-7">
-        <label className="flex flex-col">
-          <span className="label">Název workshopu</span>
-          <input
-            className="input font-display text-lg font-bold"
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-        </label>
+        <div className="grid gap-5 sm:grid-cols-[1fr_12rem]">
+          <label className="flex flex-col">
+            <span className="label">Název workshopu</span>
+            <input
+              className="input font-display text-lg font-bold"
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+          </label>
+          <label className="flex flex-col">
+            <span className="label">Jazyk pro účastníky</span>
+            <select
+              className="input h-full"
+              value={draft.language}
+              onChange={(e) => setDraft({ ...draft, language: e.target.value as Lang })}
+            >
+              {LANGS.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <label className="flex flex-col">
           <span className="label">Úvodní text (nepovinné)</span>
           <AutoTextarea
