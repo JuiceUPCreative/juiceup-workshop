@@ -54,6 +54,7 @@ const cs = {
   wrong: "Špatně",
   yourChoice: "Vaše volba",
   correctAnswer: "Správná odpověď",
+  fillAgain: "Vyplnit znovu (další osoba)",
   // Projector view
   scan: "Naskenujte",
   qrCode: "QR kód",
@@ -103,6 +104,7 @@ const en: Dict = {
   wrong: "Incorrect",
   yourChoice: "Your choice",
   correctAnswer: "Correct answer",
+  fillAgain: "Fill in again (next person)",
   scan: "Scan the",
   qrCode: "QR code",
   or: "or",

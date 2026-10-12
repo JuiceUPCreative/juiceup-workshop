@@ -41,6 +41,10 @@ function loadSaved(code: string): Saved | null {
     return null;
   }
 }
+function freshState(): Saved {
+  return { seed: Math.floor(Math.random() * 2 ** 31), index: 0, answers: {}, started: false };
+}
+
 function persist(code: string, s: Saved) {
   try {
     localStorage.setItem(storageKey(code), JSON.stringify(s));
@@ -105,14 +109,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
       .then((s) => {
         if (cancelled) return;
         setSession(s);
-        setState(
-          loadSaved(code) ?? {
-            seed: Math.floor(Math.random() * 2 ** 31),
-            index: 0,
-            answers: {},
-            started: false,
-          },
-        );
+        setState(loadSaved(code) ?? freshState());
       })
       .catch((e) => !cancelled && setError(e instanceof ApiError ? e.code : "network"));
     return () => {
@@ -205,7 +202,20 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   if (state.feedback) {
     return (
       <Shell t={t}>
-        <Results questions={questions} answers={state.answers} feedback={state.feedback} />
+        <Results
+          questions={questions}
+          answers={state.answers}
+          feedback={state.feedback}
+          onRestart={() => {
+            // Shared device: start over as a new anonymous participant.
+            // The previous submission stays on the server.
+            const next = freshState();
+            persist(code, next);
+            setState(next);
+            setActionError(null);
+            window.scrollTo({ top: 0 });
+          }}
+        />
       </Shell>
     );
   }
@@ -517,7 +527,9 @@ function Results({
   questions,
   answers,
   feedback,
+  onRestart,
 }: {
+  onRestart: () => void;
   questions: Q[];
   answers: Record<string, string>;
   feedback: Feedback;
@@ -563,6 +575,9 @@ function Results({
           <h1 className="anim-rise font-display text-5xl leading-[1.04] font-extrabold [animation-delay:60ms] sm:text-6xl">
             {t.submitted}
           </h1>
+          <button className="btn btn-secondary btn-sm anim-rise w-fit [animation-delay:120ms]" onClick={onRestart}>
+            ↻ {t.fillAgain}
+          </button>
         </div>
         {scored.length > 0 && (
           <div className="card anim-rise flex items-center gap-4 self-start p-5 [animation-delay:180ms] sm:self-auto">
@@ -637,6 +652,9 @@ function Results({
         })}
       </section>
 
+      <button className="btn btn-secondary w-fit" onClick={onRestart}>
+        ↻ {t.fillAgain}
+      </button>
     </div>
   );
 }
