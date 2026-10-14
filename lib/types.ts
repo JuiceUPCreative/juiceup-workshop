@@ -3,6 +3,8 @@ import type { Lang } from "./i18n";
 export type Answer = {
   id: string;
   text: string;
+  /** "Other" option: the participant types their own text when choosing it. */
+  open?: boolean;
 };
 
 /** "choice" = pick one answer (quiz or poll), "open" = free-text answer. */
@@ -44,6 +46,8 @@ export type SessionResponse = {
   createdAt: number;
   /** questionId -> answerId (choice) or the typed text (open) */
   answers: Record<string, string>;
+  /** questionId -> text typed into the chosen "other" option */
+  texts?: Record<string, string>;
 };
 
 /** Returned to a participant after submitting: questionId -> recommended answer + explanation. */
@@ -75,7 +79,7 @@ export type QuestionStats = {
   correct: number;
   /** 0..1, or null when nobody answered / no correct answer set */
   rate: number | null;
-  answers: { id: string; text: string; count: number }[];
+  answers: { id: string; text: string; count: number; open?: boolean; texts?: string[] }[];
   /** Open questions: the typed answers, newest first. */
   texts: string[];
 };

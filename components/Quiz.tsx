@@ -12,6 +12,8 @@ type Saved = {
   seed: number;
   index: number;
   answers: Record<string, string>;
+  /** Text typed into an "other" option, per question. */
+  texts?: Record<string, string>;
   started: boolean;
   /** Anonymous participant id from /start — makes submission idempotent. */
   pid?: string;
@@ -133,8 +135,15 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
     if (!session || !state) return [];
     return session.questions.map((q) => ({
       ...q,
+      // The "other" option always stays last, even when shuffling.
       answers: session.shuffleAnswers
-        ? seededShuffle(q.answers, state.seed + q.id.charCodeAt(0) * 31 + q.id.length)
+        ? [
+            ...seededShuffle(
+              q.answers.filter((a) => !a.open),
+              state.seed + q.id.charCodeAt(0) * 31 + q.id.length,
+            ),
+            ...q.answers.filter((a) => a.open),
+          ]
         : q.answers,
     }));
   }, [session, state?.seed]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -164,7 +173,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
       const r = await fetch(`/api/s/${encodeURIComponent(code)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: state.answers, pid: state.pid }),
+        body: JSON.stringify({ answers: state.answers, texts: state.texts ?? {}, pid: state.pid }),
       });
       if (!r.ok) throw await apiError(r);
       const data = await r.json();
@@ -205,6 +214,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
         <Results
           questions={questions}
           answers={state.answers}
+          texts={state.texts ?? {}}
           feedback={state.feedback}
           thankYou={session.thankYou}
           onRestart={() => {
@@ -252,7 +262,12 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
   const index = Math.min(state.index, questions.length - 1);
   const q = questions[index];
   // Open answers count only once they contain more than whitespace.
-  const has = (id: string) => !!state.answers[id]?.trim();
+  const has = (id: string) => {
+    if (!state.answers[id]?.trim()) return false;
+    // A chosen "other" option also needs its text.
+    const other = questions.find((x) => x.id === id)?.answers.find((a) => a.id === state.answers[id] && a.open);
+    return !other || !!state.texts?.[id]?.trim();
+  };
   const answeredCount = questions.filter((x) => has(x.id)).length;
   const isLast = index === questions.length - 1;
   const allAnswered = answeredCount === questions.length;
@@ -282,13 +297,17 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
         total={questions.length}
         q={q}
         selected={state.answers[q.id]}
+        otherText={state.texts?.[q.id] ?? ""}
         onText={(text) => update({ answers: { ...state.answers, [q.id]: text } })}
+        onOtherText={(text) => update({ texts: { ...state.texts, [q.id]: text } })}
         onSelect={(answerId) => {
           const first = !state.answers[q.id];
           update({ answers: { ...state.answers, [q.id]: answerId } });
           buzz();
           // Auto-advance on the first pick — feels snappy; changing an answer stays put.
-          if (first && !isLast) setTimeout(() => update({ index: index + 1 }), 650);
+          // Not for "other": the participant still has to type.
+          const isOther = q.answers.find((a) => a.id === answerId)?.open;
+          if (first && !isLast && !isOther) setTimeout(() => update({ index: index + 1 }), 650);
         }}
       />
 
@@ -430,15 +449,19 @@ function QuestionView({
   total,
   q,
   selected,
+  otherText,
   onSelect,
   onText,
+  onOtherText,
 }: {
   number: number;
   total: number;
   q: Q;
   selected?: string;
+  otherText: string;
   onSelect: (id: string) => void;
   onText: (text: string) => void;
+  onOtherText: (text: string) => void;
 }) {
   const t = useT();
   return (
@@ -475,6 +498,11 @@ function QuestionView({
             selected={selected === a.id}
             delay={60 + i * 60}
             onClick={() => onSelect(a.id)}
+            other={
+              a.open && selected === a.id
+                ? { value: otherText, onChange: onOtherText, placeholder: t.otherPlaceholder }
+                : undefined
+            }
           />
         ))}
       </div>
@@ -489,12 +517,15 @@ function AnswerCard({
   selected,
   delay,
   onClick,
+  other,
 }: {
   letter: string;
   text: string;
   selected: boolean;
   delay: number;
   onClick: () => void;
+  /** Set when this is the chosen "other" option: shows a text field below it. */
+  other?: { value: string; onChange: (v: string) => void; placeholder: string };
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   return (
@@ -543,6 +574,17 @@ function AnswerCard({
         </span>
         <span className="relative text-[15px] leading-relaxed whitespace-pre-line sm:text-base">{text}</span>
       </button>
+      {other && (
+        <textarea
+          autoFocus
+          className="input anim-rise mt-2 min-h-24 resize-y rounded-[16px] leading-relaxed"
+          placeholder={other.placeholder}
+          value={other.value}
+          maxLength={OPEN_ANSWER_MAX}
+          onChange={(e) => other.onChange(e.target.value)}
+          aria-label={text}
+        />
+      )}
     </div>
   );
 }
@@ -551,9 +593,11 @@ function Results({
   questions,
   answers,
   feedback,
+  texts,
   thankYou,
   onRestart,
 }: {
+  texts: Record<string, string>;
   thankYou: string;
   onRestart: () => void;
   questions: Q[];
@@ -671,6 +715,9 @@ function Results({
                       </span>
                       <div className="whitespace-pre-line">
                         {a.text}
+                        {isMine && a.open && texts[q.id] && (
+                          <span className="mt-1 block text-paper italic">„{texts[q.id]}“</span>
+                        )}
                         {(isMine || isCorrect) && (
                           <span className="mt-1 flex flex-wrap gap-x-3 text-xs font-bold">
                             {isMine && <span>{t.yourChoice}</span>}

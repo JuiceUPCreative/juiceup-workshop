@@ -86,20 +86,31 @@ function createD1Store(db: D1Database): Store {
       // The primary key makes retries and concurrent duplicates no-ops.
       const res = await db
         .prepare(
-          "INSERT OR IGNORE INTO responses (session_id, participant_id, created_at, answers) VALUES (?, ?, ?, ?)",
+          "INSERT OR IGNORE INTO responses (session_id, participant_id, created_at, answers, texts) VALUES (?, ?, ?, ?, ?)",
         )
-        .bind(sessionId, response.id, response.createdAt, JSON.stringify(response.answers))
+        .bind(
+          sessionId,
+          response.id,
+          response.createdAt,
+          JSON.stringify(response.answers),
+          response.texts ? JSON.stringify(response.texts) : null,
+        )
         .run();
       return res.meta.changes > 0;
     },
     async listResponses(sessionId) {
       const { results } = await db
         .prepare(
-          "SELECT participant_id, created_at, answers FROM responses WHERE session_id = ? ORDER BY created_at",
+          "SELECT participant_id, created_at, answers, texts FROM responses WHERE session_id = ? ORDER BY created_at",
         )
         .bind(sessionId)
-        .all<{ participant_id: string; created_at: number; answers: string }>();
-      return results.map((r) => ({ id: r.participant_id, createdAt: r.created_at, answers: JSON.parse(r.answers) }));
+        .all<{ participant_id: string; created_at: number; answers: string; texts: string | null }>();
+      return results.map((r) => ({
+        id: r.participant_id,
+        createdAt: r.created_at,
+        answers: JSON.parse(r.answers),
+        ...(r.texts ? { texts: JSON.parse(r.texts) } : {}),
+      }));
     },
     countResponses(sessionId) {
       return count("SELECT COUNT(*) AS n FROM responses WHERE session_id = ?", sessionId);

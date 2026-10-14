@@ -47,7 +47,8 @@ function toCsv(questions: Question[], responses: SessionResponse[]): string {
       if (idx < 0) return "";
       const isOk = q.answers[idx].id === q.correctId;
       if (isOk) ok++;
-      return `${letter(idx)}${isOk ? " ✓" : ""}`;
+      const typed = q.answers[idx].open ? r.texts?.[q.id] : undefined;
+      return `${letter(idx)}${isOk ? " ✓" : ""}${typed ? `: ${typed}` : ""}`;
     });
     return [new Date(r.createdAt).toISOString(), ...cells, String(ok)];
   });

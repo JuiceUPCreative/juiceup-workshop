@@ -21,30 +21,46 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/s/[code]">)
     return Response.json({ error: "Workshop už nepřijímá odpovědi", code: "closed" }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { answers?: unknown; pid?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { answers?: unknown; texts?: unknown; pid?: unknown } | null;
   const pid =
     typeof body?.pid === "string" && /^[a-f0-9]{32}$/.test(body.pid) ? body.pid : participantId();
   const raw = (body?.answers ?? {}) as Record<string, unknown>;
 
   // Keep only answers that match the current questions.
   const answers: Record<string, string> = {};
+  const texts: Record<string, string> = {};
+  const rawTexts = (body?.texts ?? {}) as Record<string, unknown>;
+  let missingOther = false;
   for (const q of session.questions) {
     const a = raw[q.id];
     if (typeof a !== "string") continue;
     if (isOpen(q)) {
       const text = a.trim().slice(0, OPEN_ANSWER_MAX);
       if (text) answers[q.id] = text;
-    } else if (q.answers.some((x) => x.id === a)) {
+    } else {
+      const chosen = q.answers.find((x) => x.id === a);
+      if (!chosen) continue;
       answers[q.id] = a;
+      if (chosen.open) {
+        // The "other" option needs the participant's own text.
+        const t = typeof rawTexts[q.id] === "string" ? (rawTexts[q.id] as string).trim().slice(0, OPEN_ANSWER_MAX) : "";
+        if (t) texts[q.id] = t;
+        else missingOther = true;
+      }
     }
   }
   const required = toPublic(session).questions;
-  if (required.some((q) => !answers[q.id])) {
+  if (missingOther || required.some((q) => !answers[q.id])) {
     return Response.json({ error: "Odpovězte prosím na všechny otázky.", code: "incomplete" }, { status: 400 });
   }
 
   // Idempotent: a retried or repeated submission never adds a second result.
-  await store.addResponse(session.id, { id: pid, createdAt: Date.now(), answers });
+  await store.addResponse(session.id, {
+    id: pid,
+    createdAt: Date.now(),
+    answers,
+    ...(Object.keys(texts).length ? { texts } : {}),
+  });
 
   return Response.json({ feedback: feedbackFor(session) });
 }

@@ -183,6 +183,7 @@ export function Editor({
         {draft.questions.map((q, qi) => (
           <QuestionCard
             key={q.id}
+            lang={draft.language}
             q={q}
             index={qi}
             total={draft.questions.length}
@@ -289,7 +290,9 @@ function QuestionCard({
   onMove,
   onDuplicate,
   onDelete,
+  lang,
 }: {
+  lang: Lang;
   q: Question;
   index: number;
   total: number;
@@ -409,18 +412,26 @@ function QuestionCard({
               >
                 {correct ? "✓" : LETTERS[ai]}
               </button>
-              <AutoTextarea
-                className={`input flex-1 text-[0.95rem] leading-relaxed ${correct ? "border-mint! bg-mint/[0.06]!" : ""}`}
-                placeholder={`Odpověď ${LETTERS[ai]}…`}
-                value={a.text}
-                autoFocus={newAnswerId === a.id}
-                onChange={(v) =>
-                  onChange((x) => ({
-                    ...x,
-                    answers: x.answers.map((y) => (y.id === a.id ? { ...y, text: v } : y)),
-                  }))
-                }
-              />
+              <div className="flex flex-1 flex-col gap-1">
+                <AutoTextarea
+                  className={`input text-[0.95rem] leading-relaxed ${correct ? "border-mint! bg-mint/[0.06]!" : ""}`}
+                  placeholder={a.open ? "Jiné" : `Odpověď ${LETTERS[ai]}…`}
+                  value={a.text}
+                  autoFocus={newAnswerId === a.id}
+                  onChange={(v) =>
+                    onChange((x) => ({
+                      ...x,
+                      answers: x.answers.map((y) => (y.id === a.id ? { ...y, text: v } : y)),
+                    }))
+                  }
+                />
+                {a.open && (
+                  <span className="text-xs text-muted">
+                    <span className="mr-1.5 rounded-full bg-line px-2 py-0.5 font-semibold text-paper">Jiné</span>
+                    Účastník po výběru dopíše vlastní text.
+                  </span>
+                )}
+              </div>
               <div className="mt-1 flex shrink-0 flex-col opacity-100 transition-opacity sm:flex-row sm:opacity-0 sm:group-hover/answer:opacity-100 sm:group-focus-within/answer:opacity-100">
                 <IconButton
                   small
@@ -467,6 +478,20 @@ function QuestionCard({
             }}
           >
             + Odpověď
+          </button>
+        )}
+        {q.answers.length < 12 && !q.answers.some((a) => a.open) && (
+          <button
+            className="btn btn-secondary btn-sm self-start"
+            onClick={() => {
+              const id = randomId();
+              onChange((x) => ({
+                ...x,
+                answers: [...x.answers, { id, text: lang === "en" ? "Other" : "Jiné", open: true }],
+              }));
+            }}
+          >
+            + Možnost Jiné (vlastní text)
           </button>
         )}
           </>

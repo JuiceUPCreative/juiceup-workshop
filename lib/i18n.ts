@@ -56,6 +56,7 @@ const cs = {
   correctAnswer: "Správná odpověď",
   fillAgain: "Vyplnit znovu (další osoba)",
   openPlaceholder: "Napište svou odpověď…",
+  otherPlaceholder: "Upřesněte prosím…",
   openBadge: "Otevřená otázka",
   yourAnswer: "Vaše odpověď",
   // Projector view
@@ -109,6 +110,7 @@ const en: Dict = {
   correctAnswer: "Correct answer",
   fillAgain: "Fill in again (next person)",
   openPlaceholder: "Type your answer…",
+  otherPlaceholder: "Please specify…",
   openBadge: "Open question",
   yourAnswer: "Your answer",
   scan: "Scan the",

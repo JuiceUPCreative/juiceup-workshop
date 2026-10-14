@@ -44,7 +44,11 @@ export function toPublic(s: Session): PublicSession {
         id: q.id,
         type: isOpen(q) ? ("open" as const) : ("choice" as const),
         text: q.text,
-        answers: isOpen(q) ? [] : q.answers.filter((a) => a.text.trim()),
+        answers: isOpen(q)
+          ? []
+          : q.answers
+              .filter((a) => a.text.trim())
+              .map((a) => (a.open ? { id: a.id, text: a.text, open: true } : { id: a.id, text: a.text })),
       })),
   };
 }
@@ -57,7 +61,7 @@ export function cloneQuestions(questions: Question[]): Question[] {
       id: randomId(),
       type: q.type ?? "choice",
       text: q.text,
-      answers: q.answers.map((a) => ({ id: idMap.get(a.id)!, text: a.text })),
+      answers: q.answers.map((a) => ({ id: idMap.get(a.id)!, text: a.text, ...(a.open ? { open: true } : {}) })),
       correctId: q.correctId ? (idMap.get(q.correctId) ?? null) : null,
       explanation: q.explanation ?? "",
     };
@@ -70,9 +74,13 @@ export function sanitizeQuestions(input: unknown): Question[] {
   const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
   return input.slice(0, 100).map((raw) => {
     const q = (raw ?? {}) as Record<string, unknown>;
+    let hasOther = false;
     const answers = (Array.isArray(q.answers) ? q.answers : []).slice(0, 12).map((ra) => {
       const a = (ra ?? {}) as Record<string, unknown>;
-      return { id: str(a.id, 40) || randomId(), text: str(a.text, 2000) };
+      // At most one "other" option per question.
+      const open = a.open === true && !hasOther;
+      if (open) hasOther = true;
+      return { id: str(a.id, 40) || randomId(), text: str(a.text, 2000), ...(open ? { open: true } : {}) };
     });
     const type = q.type === "open" ? "open" : "choice";
     const correctId =
@@ -124,12 +132,18 @@ export function computeStats(
       };
     }
     const counts = new Map<string, number>(q.answers.map((a) => [a.id, 0]));
+    const otherTexts = new Map<string, { at: number; text: string }[]>();
     let answered = 0;
     for (const r of responses) {
       const a = r.answers[q.id];
       if (a && counts.has(a)) {
         counts.set(a, counts.get(a)! + 1);
         answered++;
+        const typed = r.texts?.[q.id]?.trim();
+        if (typed) {
+          if (!otherTexts.has(a)) otherTexts.set(a, []);
+          otherTexts.get(a)!.push({ at: r.createdAt, text: typed });
+        }
       }
     }
     const correct = q.correctId ? (counts.get(q.correctId) ?? 0) : 0;
@@ -141,7 +155,17 @@ export function computeStats(
       answered,
       correct,
       rate: answered > 0 && q.correctId ? correct / answered : null,
-      answers: q.answers.map((a) => ({ id: a.id, text: a.text, count: counts.get(a.id) ?? 0 })),
+      answers: q.answers.map((a) => ({
+        id: a.id,
+        text: a.text,
+        count: counts.get(a.id) ?? 0,
+        ...(a.open
+          ? {
+              open: true,
+              texts: (otherTexts.get(a.id) ?? []).sort((x, y) => y.at - x.at).map((x) => x.text),
+            }
+          : {}),
+      })),
       texts: [],
     };
   });

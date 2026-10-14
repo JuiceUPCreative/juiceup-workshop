@@ -9,7 +9,8 @@
     "lint": "eslint",
     "cf:build": "opennextjs-cloudflare build",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && wrangler d1 migrations apply DB --remote && opennextjs-cloudflare deploy"
+    "deploy": "opennextjs-cloudflare build && npm run db:migrate && opennextjs-cloudflare deploy",
+    "db:migrate": "wrangler d1 migrations apply DB --remote || (sleep 3 && wrangler d1 migrations apply DB --remote) || (sleep 8 && wrangler d1 migrations apply DB --remote)"
   },
   "dependencies": {
     "@opennextjs/cloudflare": "^1.20.9",

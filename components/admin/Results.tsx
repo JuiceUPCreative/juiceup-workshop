@@ -264,6 +264,9 @@ function QuestionCard({
                   <span className="mr-2 text-xs text-muted">{LETTERS[i]}</span>
                   {a.text}
                   {correct && <span className="mt-0.5 block text-xs font-semibold text-mint">✓ Správná</span>}
+                  {a.open && (
+                    <span className="mt-0.5 block text-xs font-semibold text-muted">Jiné · vlastní text</span>
+                  )}
                 </div>
                 <span className="text-sm font-bold tabular-nums">
                   {a.count} <span className="font-normal text-muted">({Math.round(share * 100)} %)</span>
@@ -274,6 +277,15 @@ function QuestionCard({
                     style={{ width: `${share * 100}%`, transition: "width 700ms cubic-bezier(0.22,1,0.36,1)" }}
                   />
                 </div>
+                {a.open && (a.texts?.length ?? 0) > 0 && (
+                  <ul className="col-span-2 flex flex-col gap-1.5">
+                    {a.texts!.map((text, ti) => (
+                      <li key={ti} className="rounded-lg bg-surface-2 px-3 py-2 text-sm leading-relaxed whitespace-pre-line">
+                        {text}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             );
           })}
