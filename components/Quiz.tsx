@@ -311,7 +311,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
         }}
       />
 
-      <div className="sticky bottom-0 -mx-5 mt-auto flex flex-col gap-3 bg-gradient-to-t from-bg via-bg to-bg/0 px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:-mx-8 sm:px-8">
+      <div data-quiz-footer className="sticky bottom-0 -mx-5 mt-auto flex flex-col gap-3 bg-gradient-to-t from-bg via-bg to-bg/0 px-5 pt-8 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:-mx-8 sm:px-8">
         {isLast && !allAnswered && (
           <p className="text-center text-sm text-muted">
             {t.missing(missing)}{" "}
@@ -465,7 +465,7 @@ function QuestionView({
 }) {
   const t = useT();
   return (
-    <section className="flex flex-col gap-6 pt-8 pb-2">
+    <section className="flex shrink-0 flex-col gap-6 pt-8 pb-2">
       <div className="anim-rise">
         <span className="eyebrow mb-4">
           {t.questionOf(number, total)}
@@ -498,17 +498,28 @@ function QuestionView({
             selected={selected === a.id}
             delay={60 + i * 60}
             onClick={() => onSelect(a.id)}
-            other={
-              a.open && selected === a.id
-                ? { value: otherText, onChange: onOtherText, placeholder: t.otherPlaceholder }
-                : undefined
-            }
+            other={a.open ? { value: otherText, onChange: onOtherText, placeholder: t.otherPlaceholder } : undefined}
           />
         ))}
       </div>
       )}
     </section>
   );
+}
+
+/**
+ * Scrolls so `el` sits fully above the sticky footer and within the visible
+ * area (the on-screen keyboard shrinks the visual viewport on phones).
+ */
+function revealAboveFooter(el: HTMLElement) {
+  const vv = window.visualViewport;
+  const viewTop = vv ? vv.offsetTop : 0;
+  const viewBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  const footerTop = document.querySelector("[data-quiz-footer]")?.getBoundingClientRect().top ?? viewBottom;
+  const limit = Math.min(viewBottom, footerTop) - 12;
+  const r = el.getBoundingClientRect();
+  if (r.bottom > limit) window.scrollBy({ top: r.bottom - limit, behavior: "smooth" });
+  else if (r.top < viewTop + 72) window.scrollBy({ top: r.top - viewTop - 72, behavior: "smooth" });
 }
 
 function AnswerCard({
@@ -524,10 +535,11 @@ function AnswerCard({
   selected: boolean;
   delay: number;
   onClick: () => void;
-  /** Set when this is the chosen "other" option: shows a text field below it. */
+  /** Set for the "other" option: a text field that opens below it when chosen. */
   other?: { value: string; onChange: (v: string) => void; placeholder: string };
 }) {
   const ref = useRef<HTMLButtonElement>(null);
+  const otherRef = useRef<HTMLTextAreaElement>(null);
   return (
     <div className="anim-rise" style={{ animationDelay: `${delay}ms` }}>
       <button
@@ -541,6 +553,18 @@ function AnswerCard({
             el.classList.remove("anim-squish");
             void el.offsetWidth;
             el.classList.add("anim-squish");
+          }
+          if (other && otherRef.current) {
+            // Focus synchronously inside the tap, otherwise iOS won't open the keyboard.
+            otherRef.current.focus({ preventScroll: true });
+            // Bring the field above the sticky footer once it has expanded, and again
+            // when the on-screen keyboard shrinks the visible area.
+            const ta = otherRef.current;
+            const reveal = () => revealAboveFooter(ta);
+            // Once mid-expansion and once after it, plus when the keyboard opens.
+            setTimeout(reveal, 200);
+            setTimeout(reveal, 450);
+            window.visualViewport?.addEventListener("resize", () => setTimeout(reveal, 50), { once: true });
           }
           onClick();
         }}
@@ -575,15 +599,25 @@ function AnswerCard({
         <span className="relative text-[15px] leading-relaxed whitespace-pre-line sm:text-base">{text}</span>
       </button>
       {other && (
-        <textarea
-          autoFocus
-          className="input anim-rise mt-2 min-h-24 resize-y rounded-[16px] leading-relaxed"
-          placeholder={other.placeholder}
-          value={other.value}
-          maxLength={OPEN_ANSWER_MAX}
-          onChange={(e) => other.onChange(e.target.value)}
-          aria-label={text}
-        />
+        // Always mounted (just collapsed) so it can take focus in the same tap that selects it.
+        <div
+          className="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+          style={{ gridTemplateRows: selected ? "1fr" : "0fr", opacity: selected ? 1 : 0 }}
+        >
+          <div className="overflow-hidden">
+            <textarea
+              ref={otherRef}
+              className="input mt-2 min-h-24 resize-y rounded-[16px] leading-relaxed"
+              placeholder={other.placeholder}
+              value={other.value}
+              maxLength={OPEN_ANSWER_MAX}
+              onChange={(e) => other.onChange(e.target.value)}
+              tabIndex={selected ? 0 : -1}
+              aria-hidden={!selected}
+              aria-label={text}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
