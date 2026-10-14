@@ -216,6 +216,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
           answers={state.answers}
           texts={state.texts ?? {}}
           feedback={state.feedback}
+          thankYouTitle={session.thankYouTitle}
           thankYou={session.thankYou}
           onRestart={() => {
             // Shared device: start over as a new anonymous participant.
@@ -629,8 +630,10 @@ function Results({
   feedback,
   texts,
   thankYou,
+  thankYouTitle,
   onRestart,
 }: {
+  thankYouTitle: string;
   texts: Record<string, string>;
   thankYou: string;
   onRestart: () => void;
@@ -677,7 +680,7 @@ function Results({
             </svg>
           </div>
           <h1 className="anim-rise font-display text-5xl leading-[1.04] font-extrabold [animation-delay:60ms] sm:text-6xl">
-            {t.submitted}
+            {thankYouTitle.trim() || t.submitted}
           </h1>
           {thankYou.trim() && (
             <p className="anim-rise max-w-xl text-lg leading-relaxed whitespace-pre-line text-muted [animation-delay:90ms]">

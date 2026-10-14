@@ -29,6 +29,8 @@ export type Session = {
   code: string;
   name: string;
   intro: string;
+  /** Heading after submitting; empty = default "Odesláno" / "Submitted". */
+  thankYouTitle?: string;
   /** Shown to participants after they submit, e.g. "Děkujeme za vyplnění". */
   thankYou?: string;
   /** Language of the participant UI (admin is always Czech). */
@@ -59,6 +61,7 @@ export type PublicSession = {
   name: string;
   language: Lang;
   intro: string;
+  thankYouTitle: string;
   thankYou: string;
   open: boolean;
   shuffleAnswers: boolean;

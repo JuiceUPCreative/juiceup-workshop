@@ -35,6 +35,7 @@ export function toPublic(s: Session): PublicSession {
     // Workshops created before languages existed are Czech.
     language: normalizeLang(s.language),
     intro: s.intro,
+    thankYouTitle: s.thankYouTitle ?? "",
     thankYou: s.thankYou ?? "",
     open: s.open,
     shuffleAnswers: s.shuffleAnswers,

@@ -9,6 +9,7 @@ import { api, plural } from "./api";
 import { useAuthError } from "./AdminGate";
 
 type Draft = Pick<Session, "name" | "intro" | "language" | "shuffleAnswers" | "questions"> & {
+  thankYouTitle: string;
   thankYou: string;
 };
 
@@ -18,6 +19,7 @@ function draftOf(s: Session): Draft {
   return {
     name: s.name,
     intro: s.intro,
+    thankYouTitle: s.thankYouTitle ?? "",
     thankYou: s.thankYou ?? "",
     language: normalizeLang(s.language),
     shuffleAnswers: s.shuffleAnswers,
@@ -137,6 +139,16 @@ export function Editor({
             placeholder=""
             value={draft.intro}
             onChange={(v) => setDraft({ ...draft, intro: v })}
+          />
+        </label>
+        <label className="flex flex-col">
+          <span className="label">Nadpis po odeslání (nepovinné)</span>
+          <input
+            className="input font-display font-bold"
+            placeholder={draft.language === "en" ? "Submitted" : "Odesláno"}
+            value={draft.thankYouTitle}
+            maxLength={200}
+            onChange={(e) => setDraft({ ...draft, thankYouTitle: e.target.value })}
           />
         </label>
         <label className="flex flex-col">

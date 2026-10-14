@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
   let questions: Question[] = [];
   let intro = "";
   let thankYou = "";
+  let thankYouTitle = "";
   let shuffleAnswers = true;
   let language = body.language === undefined ? undefined : normalizeLang(body.language);
   if (typeof body.copyFrom === "string") {
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
     questions = cloneQuestions(src.questions);
     intro = src.intro;
     thankYou = src.thankYou ?? "";
+    thankYouTitle = src.thankYouTitle ?? "";
     shuffleAnswers = src.shuffleAnswers;
     language ??= normalizeLang(src.language);
   } else if (body.demo) {
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
     ...newSession(await generateUniqueCode(), name.slice(0, 200), questions, language ?? "cs"),
     intro,
     thankYou,
+    thankYouTitle,
     shuffleAnswers,
   };
   await store.saveSession(session);
