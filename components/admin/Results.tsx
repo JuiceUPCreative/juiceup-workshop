@@ -186,6 +186,8 @@ function QuestionCard({
   onToggle: () => void;
   isHardest: boolean;
 }) {
+  if (q.type === "open") return <OpenQuestionCard q={q} number={number} />;
+
   // No correct answer marked = poll: show the vote split right away instead of a success rate.
   const isPoll = !q.correctId;
   const t = tone(q.rate);
@@ -276,6 +278,43 @@ function QuestionCard({
             );
           })}
         </div>
+      )}
+    </article>
+  );
+}
+
+/** Free-text answers, newest first; long lists are capped until expanded. */
+function OpenQuestionCard({ q, number }: { q: QuestionStats; number: number }) {
+  const [all, setAll] = useState(false);
+  const LIMIT = 8;
+  const shown = all ? q.texts : q.texts.slice(0, LIMIT);
+  return (
+    <article className="card p-5 sm:p-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="eyebrow">Otázka {number}</span>
+          <span className="rounded-full bg-line px-2.5 py-1 text-[11px] font-semibold text-paper">Otevřená</span>
+        </div>
+        <h3 className="text-lg leading-snug font-bold whitespace-pre-line">
+          {q.text || <em className="text-muted">bez textu</em>}
+        </h3>
+        <span className="text-xs text-muted">
+          {q.answered} {q.answered === 1 ? "odpověď" : q.answered >= 2 && q.answered <= 4 ? "odpovědi" : "odpovědí"}
+        </span>
+      </div>
+      {q.texts.length > 0 && (
+        <ul className="mt-5 flex flex-col gap-2 border-t border-line pt-5">
+          {shown.map((text, i) => (
+            <li key={i} className="rounded-xl bg-surface-2 px-4 py-3 leading-relaxed whitespace-pre-line">
+              {text}
+            </li>
+          ))}
+        </ul>
+      )}
+      {q.texts.length > LIMIT && (
+        <button className="mt-3 text-xs font-semibold text-muted hover:text-paper" onClick={() => setAll(!all)}>
+          {all ? "Zobrazit méně" : `Zobrazit všech ${q.texts.length}`}
+        </button>
       )}
     </article>
   );

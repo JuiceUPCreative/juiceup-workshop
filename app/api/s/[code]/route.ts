@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { normalizeCode, participantId } from "@/lib/ids";
-import { feedbackFor, getSessionByCode, toPublic } from "@/lib/sessions";
+import { feedbackFor, getSessionByCode, isOpen, toPublic } from "@/lib/sessions";
+import { OPEN_ANSWER_MAX } from "@/lib/types";
 import { store } from "@/lib/store";
 
 const notFound = () => Response.json({ error: "Workshop nenalezen", code: "not_found" }, { status: 404 });
@@ -29,7 +30,13 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/s/[code]">)
   const answers: Record<string, string> = {};
   for (const q of session.questions) {
     const a = raw[q.id];
-    if (typeof a === "string" && q.answers.some((x) => x.id === a)) answers[q.id] = a;
+    if (typeof a !== "string") continue;
+    if (isOpen(q)) {
+      const text = a.trim().slice(0, OPEN_ANSWER_MAX);
+      if (text) answers[q.id] = text;
+    } else if (q.answers.some((x) => x.id === a)) {
+      answers[q.id] = a;
+    }
   }
   const required = toPublic(session).questions;
   if (required.some((q) => !answers[q.id])) {

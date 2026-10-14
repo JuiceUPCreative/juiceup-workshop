@@ -24,6 +24,10 @@ export async function getSessionByCode(code: string): Promise<Session | null> {
   return id ? store.getSession(id) : null;
 }
 
+export function isOpen(q: Pick<Question, "type">): boolean {
+  return q.type === "open";
+}
+
 export function toPublic(s: Session): PublicSession {
   return {
     code: s.code,
@@ -31,14 +35,16 @@ export function toPublic(s: Session): PublicSession {
     // Workshops created before languages existed are Czech.
     language: normalizeLang(s.language),
     intro: s.intro,
+    thankYou: s.thankYou ?? "",
     open: s.open,
     shuffleAnswers: s.shuffleAnswers,
     questions: s.questions
-      .filter((q) => q.text.trim() && q.answers.length > 0)
+      .filter((q) => q.text.trim() && (isOpen(q) || q.answers.some((a) => a.text.trim())))
       .map((q) => ({
         id: q.id,
+        type: isOpen(q) ? ("open" as const) : ("choice" as const),
         text: q.text,
-        answers: q.answers.filter((a) => a.text.trim()),
+        answers: isOpen(q) ? [] : q.answers.filter((a) => a.text.trim()),
       })),
   };
 }
@@ -49,6 +55,7 @@ export function cloneQuestions(questions: Question[]): Question[] {
     const idMap = new Map(q.answers.map((a) => [a.id, randomId()]));
     return {
       id: randomId(),
+      type: q.type ?? "choice",
       text: q.text,
       answers: q.answers.map((a) => ({ id: idMap.get(a.id)!, text: a.text })),
       correctId: q.correctId ? (idMap.get(q.correctId) ?? null) : null,
@@ -67,13 +74,16 @@ export function sanitizeQuestions(input: unknown): Question[] {
       const a = (ra ?? {}) as Record<string, unknown>;
       return { id: str(a.id, 40) || randomId(), text: str(a.text, 2000) };
     });
+    const type = q.type === "open" ? "open" : "choice";
     const correctId =
-      typeof q.correctId === "string" && answers.some((a) => a.id === q.correctId)
+      type === "choice" && typeof q.correctId === "string" && answers.some((a) => a.id === q.correctId)
         ? q.correctId
         : null;
     return {
       id: str(q.id, 40) || randomId(),
+      type,
       text: str(q.text, 2000),
+      // Open questions keep their (hidden) options so switching back in the editor loses nothing.
       answers,
       correctId,
       explanation: str(q.explanation, 4000),
@@ -95,6 +105,24 @@ export function computeStats(
   startedCount: number,
 ): SessionStats {
   const questions = session.questions.map((q) => {
+    if (isOpen(q)) {
+      const texts = responses
+        .map((r) => ({ at: r.createdAt, text: (r.answers[q.id] ?? "").trim() }))
+        .filter((x) => x.text)
+        .sort((a, b) => b.at - a.at)
+        .map((x) => x.text);
+      return {
+        id: q.id,
+        type: "open" as const,
+        text: q.text,
+        correctId: null,
+        answered: texts.length,
+        correct: 0,
+        rate: null,
+        answers: [],
+        texts,
+      };
+    }
     const counts = new Map<string, number>(q.answers.map((a) => [a.id, 0]));
     let answered = 0;
     for (const r of responses) {
@@ -107,16 +135,18 @@ export function computeStats(
     const correct = q.correctId ? (counts.get(q.correctId) ?? 0) : 0;
     return {
       id: q.id,
+      type: "choice" as const,
       text: q.text,
       correctId: q.correctId,
       answered,
       correct,
       rate: answered > 0 && q.correctId ? correct / answered : null,
       answers: q.answers.map((a) => ({ id: a.id, text: a.text, count: counts.get(a.id) ?? 0 })),
+      texts: [],
     };
   });
 
-  const scored = session.questions.filter((q) => q.correctId);
+  const scored = session.questions.filter((q) => q.correctId && !isOpen(q));
   let averageScore: number | null = null;
   if (responses.length && scored.length) {
     const total = responses.reduce(

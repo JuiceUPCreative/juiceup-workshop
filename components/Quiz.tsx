@@ -6,7 +6,7 @@ import confetti from "canvas-confetti";
 import { Loader, SiteHeader } from "@/components/Logo";
 import { JuiceGlass, JuiceProgress } from "@/components/JuiceProgress";
 import { browserLang, type Dict, dictionaries, type PublicErrorCode } from "@/lib/i18n";
-import type { Feedback, PublicSession } from "@/lib/types";
+import { type Feedback, OPEN_ANSWER_MAX, type PublicSession } from "@/lib/types";
 
 type Saved = {
   seed: number;
@@ -206,6 +206,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
           questions={questions}
           answers={state.answers}
           feedback={state.feedback}
+          thankYou={session.thankYou}
           onRestart={() => {
             // Shared device: start over as a new anonymous participant.
             // The previous submission stays on the server.
@@ -250,7 +251,9 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
 
   const index = Math.min(state.index, questions.length - 1);
   const q = questions[index];
-  const answeredCount = questions.filter((x) => state.answers[x.id]).length;
+  // Open answers count only once they contain more than whitespace.
+  const has = (id: string) => !!state.answers[id]?.trim();
+  const answeredCount = questions.filter((x) => has(x.id)).length;
   const isLast = index === questions.length - 1;
   const allAnswered = answeredCount === questions.length;
   const missing = questions.length - answeredCount;
@@ -279,6 +282,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
         total={questions.length}
         q={q}
         selected={state.answers[q.id]}
+        onText={(text) => update({ answers: { ...state.answers, [q.id]: text } })}
         onSelect={(answerId) => {
           const first = !state.answers[q.id];
           update({ answers: { ...state.answers, [q.id]: answerId } });
@@ -294,7 +298,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
             {t.missing(missing)}{" "}
             <button
               className="font-semibold text-mint underline underline-offset-4"
-              onClick={() => update({ index: questions.findIndex((x) => !state.answers[x.id]) })}
+              onClick={() => update({ index: questions.findIndex((x) => !has(x.id)) })}
             >
               {t.goToMissing}
             </button>
@@ -314,7 +318,7 @@ export function Quiz({ params }: { params: Promise<{ code: string }> }) {
               {busy ? t.submitting : t.submit}
             </button>
           ) : (
-            <button className="btn" disabled={!state.answers[q.id]} onClick={() => update({ index: index + 1 })}>
+            <button className="btn" disabled={!has(q.id)} onClick={() => update({ index: index + 1 })}>
               {t.next}
             </button>
           )}
@@ -427,12 +431,14 @@ function QuestionView({
   q,
   selected,
   onSelect,
+  onText,
 }: {
   number: number;
   total: number;
   q: Q;
   selected?: string;
   onSelect: (id: string) => void;
+  onText: (text: string) => void;
 }) {
   const t = useT();
   return (
@@ -443,6 +449,23 @@ function QuestionView({
         </span>
         <h1 className="font-display text-[1.75rem] leading-tight font-bold whitespace-pre-line sm:text-4xl">{q.text}</h1>
       </div>
+      {q.type === "open" ? (
+        <div className="anim-rise [animation-delay:60ms]">
+          <textarea
+            className="input min-h-40 resize-y rounded-[20px] p-5 text-base leading-relaxed"
+            placeholder={t.openPlaceholder}
+            value={selected ?? ""}
+            maxLength={OPEN_ANSWER_MAX}
+            onChange={(e) => onText(e.target.value)}
+            aria-label={q.text}
+          />
+          {(selected?.length ?? 0) > OPEN_ANSWER_MAX * 0.8 && (
+            <p className="mt-1 text-right text-xs text-muted tabular-nums">
+              {selected!.length} / {OPEN_ANSWER_MAX}
+            </p>
+          )}
+        </div>
+      ) : (
       <div className="flex flex-col gap-3" role="radiogroup" aria-label={t.pickOne}>
         {q.answers.map((a, i) => (
           <AnswerCard
@@ -455,6 +478,7 @@ function QuestionView({
           />
         ))}
       </div>
+      )}
     </section>
   );
 }
@@ -527,8 +551,10 @@ function Results({
   questions,
   answers,
   feedback,
+  thankYou,
   onRestart,
 }: {
+  thankYou: string;
   onRestart: () => void;
   questions: Q[];
   answers: Record<string, string>;
@@ -575,6 +601,11 @@ function Results({
           <h1 className="anim-rise font-display text-5xl leading-[1.04] font-extrabold [animation-delay:60ms] sm:text-6xl">
             {t.submitted}
           </h1>
+          {thankYou.trim() && (
+            <p className="anim-rise max-w-xl text-lg leading-relaxed whitespace-pre-line text-muted [animation-delay:90ms]">
+              {thankYou}
+            </p>
+          )}
           <button className="btn btn-secondary btn-sm anim-rise w-fit [animation-delay:120ms]" onClick={onRestart}>
             ↻ {t.fillAgain}
           </button>
@@ -596,6 +627,7 @@ function Results({
         {questions.map((q, i) => {
           const mine = answers[q.id];
           const fb = feedback[q.id] ?? { correctId: null, explanation: "" };
+          const isOpenQ = q.type === "open";
           const isPoll = !fb.correctId;
           const matches = !isPoll && mine === fb.correctId;
           return (
@@ -607,10 +639,16 @@ function Results({
                     isPoll ? "bg-line text-paper" : matches ? "bg-mint/15 text-mint" : "bg-pink/15 text-pink"
                   }`}
                 >
-                  {isPoll ? t.poll : matches ? t.right : t.wrong}
+                  {isOpenQ ? t.openBadge : isPoll ? t.poll : matches ? t.right : t.wrong}
                 </span>
               </div>
               <h2 className="mb-4 text-lg leading-snug font-bold whitespace-pre-line">{q.text}</h2>
+              {isOpenQ && (
+                <div className="rounded-xl border border-paper/40 bg-surface-2 px-4 py-3 text-[15px] leading-relaxed">
+                  <span className="mb-1 block text-xs font-bold text-muted">{t.yourAnswer}</span>
+                  <span className="whitespace-pre-line">{mine}</span>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
                 {q.answers.map((a) => {
                   const isCorrect = a.id === fb.correctId;

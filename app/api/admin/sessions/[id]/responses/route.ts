@@ -42,6 +42,7 @@ function toCsv(questions: Question[], responses: SessionResponse[]): string {
   const rows = responses.map((r) => {
     let ok = 0;
     const cells = questions.map((q) => {
+      if (q.type === "open") return r.answers[q.id] ?? "";
       const idx = q.answers.findIndex((a) => a.id === r.answers[q.id]);
       if (idx < 0) return "";
       const isOk = q.answers[idx].id === q.correctId;

@@ -8,7 +8,9 @@ import type { Question, Session } from "@/lib/types";
 import { api, plural } from "./api";
 import { useAuthError } from "./AdminGate";
 
-type Draft = Pick<Session, "name" | "intro" | "language" | "shuffleAnswers" | "questions">;
+type Draft = Pick<Session, "name" | "intro" | "language" | "shuffleAnswers" | "questions"> & {
+  thankYou: string;
+};
 
 const LETTERS = "ABCDEFGHIJKL";
 
@@ -16,6 +18,7 @@ function draftOf(s: Session): Draft {
   return {
     name: s.name,
     intro: s.intro,
+    thankYou: s.thankYou ?? "",
     language: normalizeLang(s.language),
     shuffleAnswers: s.shuffleAnswers,
     questions: s.questions,
@@ -24,7 +27,7 @@ function draftOf(s: Session): Draft {
 
 function blankQuestion(): Question {
   const answers = [0, 1, 2, 3].map(() => ({ id: randomId(), text: "" }));
-  return { id: randomId(), text: "", answers, correctId: null, explanation: "" };
+  return { id: randomId(), type: "choice", text: "", answers, correctId: null, explanation: "" };
 }
 
 function move<T>(arr: T[], from: number, to: number): T[] {
@@ -97,7 +100,8 @@ export function Editor({
   const setQuestion = (id: string, fn: (q: Question) => Question) =>
     setQuestions((qs) => qs.map((q) => (q.id === id ? fn(q) : q)));
 
-  const pollCount = draft.questions.filter((q) => !q.correctId).length;
+  const openCount = draft.questions.filter((q) => q.type === "open").length;
+  const pollCount = draft.questions.filter((q) => q.type !== "open" && !q.correctId).length;
 
   return (
     <div className="flex flex-col gap-6 pb-32">
@@ -135,6 +139,15 @@ export function Editor({
             onChange={(v) => setDraft({ ...draft, intro: v })}
           />
         </label>
+        <label className="flex flex-col">
+          <span className="label">Text po odeslání (nepovinné)</span>
+          <AutoTextarea
+            className="input"
+            placeholder="např. Děkujeme za vyplnění!"
+            value={draft.thankYou}
+            onChange={(v) => setDraft({ ...draft, thankYou: v })}
+          />
+        </label>
         <Toggle
           checked={draft.shuffleAnswers}
           onChange={(v) => setDraft({ ...draft, shuffleAnswers: v })}
@@ -154,6 +167,11 @@ export function Editor({
         <h2 className="font-display text-2xl font-bold">
           Otázky <span className="text-muted">{draft.questions.length}</span>
         </h2>
+        {openCount > 0 && (
+          <span className="rounded-full bg-line px-3 py-1 text-xs font-semibold text-muted">
+            {openCount}× otevřená
+          </span>
+        )}
         {pollCount > 0 && (
           <span className="rounded-full bg-line px-3 py-1 text-xs font-semibold text-muted">
             {pollCount}× anketa
@@ -184,6 +202,7 @@ export function Editor({
                 const idMap = new Map(q.answers.map((a) => [a.id, randomId()]));
                 const copy: Question = {
                   id: randomId(),
+                  type: q.type ?? "choice",
                   text: q.text,
                   answers: q.answers.map((a) => ({ id: idMap.get(a.id)!, text: a.text })),
                   correctId: q.correctId ? idMap.get(q.correctId)! : null,
@@ -286,7 +305,8 @@ function QuestionCard({
 }) {
   const [draggable, setDraggable] = useState(false);
   const [newAnswerId, setNewAnswerId] = useState<string | null>(null);
-  const isPoll = !q.correctId;
+  const isOpenQ = q.type === "open";
+  const isPoll = !isOpenQ && !q.correctId;
 
   return (
     <article
@@ -338,6 +358,34 @@ function QuestionCard({
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:pl-12">
+        <div className="mb-1 flex w-fit rounded-full bg-field p-1 text-xs font-semibold" role="radiogroup" aria-label="Typ otázky">
+          {(
+            [
+              ["choice", "Výběr z možností"],
+              ["open", "Otevřená odpověď"],
+            ] as const
+          ).map(([value, label]) => {
+            const active = (q.type ?? "choice") === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => onChange((x) => ({ ...x, type: value }))}
+                className={`rounded-full px-3 py-1.5 transition-colors ${
+                  active ? "bg-mint text-ink" : "text-muted hover:text-paper"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        {isOpenQ ? (
+          <p className="text-xs text-muted">Účastník napíše vlastní text. Odpovědi uvidíte ve výsledcích.</p>
+        ) : (
+          <>
         <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
           {isPoll && (
             <span className="rounded-full bg-line px-2 py-0.5 font-semibold text-paper">Anketa</span>
@@ -420,6 +468,8 @@ function QuestionCard({
           >
             + Odpověď
           </button>
+        )}
+          </>
         )}
         <label className="mt-4 flex flex-col">
           <span className="label">Vysvětlení (uvidí po odeslání, nepovinné)</span>

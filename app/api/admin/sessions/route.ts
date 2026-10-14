@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
 
   let questions: Question[] = [];
   let intro = "";
+  let thankYou = "";
   let shuffleAnswers = true;
   let language = body.language === undefined ? undefined : normalizeLang(body.language);
   if (typeof body.copyFrom === "string") {
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
     if (!src) return Response.json({ error: "Zdrojový workshop nenalezen" }, { status: 404 });
     questions = cloneQuestions(src.questions);
     intro = src.intro;
+    thankYou = src.thankYou ?? "";
     shuffleAnswers = src.shuffleAnswers;
     language ??= normalizeLang(src.language);
   } else if (body.demo) {
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
   const session = {
     ...newSession(await generateUniqueCode(), name.slice(0, 200), questions, language ?? "cs"),
     intro,
+    thankYou,
     shuffleAnswers,
   };
   await store.saveSession(session);

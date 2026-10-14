@@ -5,8 +5,15 @@ export type Answer = {
   text: string;
 };
 
+/** "choice" = pick one answer (quiz or poll), "open" = free-text answer. */
+export type QuestionType = "choice" | "open";
+
+export const OPEN_ANSWER_MAX = 2000;
+
 export type Question = {
   id: string;
+  /** Missing on questions created before open questions existed = "choice". */
+  type?: QuestionType;
   text: string;
   answers: Answer[];
   correctId: string | null;
@@ -20,6 +27,8 @@ export type Session = {
   code: string;
   name: string;
   intro: string;
+  /** Shown to participants after they submit, e.g. "Děkujeme za vyplnění". */
+  thankYou?: string;
   /** Language of the participant UI (admin is always Czech). */
   language: Lang;
   questions: Question[];
@@ -33,7 +42,7 @@ export type SessionResponse = {
   /** Participant id — one response per participant. */
   id: string;
   createdAt: number;
-  /** questionId -> answerId */
+  /** questionId -> answerId (choice) or the typed text (open) */
   answers: Record<string, string>;
 };
 
@@ -46,9 +55,10 @@ export type PublicSession = {
   name: string;
   language: Lang;
   intro: string;
+  thankYou: string;
   open: boolean;
   shuffleAnswers: boolean;
-  questions: { id: string; text: string; answers: Answer[] }[];
+  questions: { id: string; type: QuestionType; text: string; answers: Answer[] }[];
 };
 
 export type SessionSummary = Pick<
@@ -58,6 +68,7 @@ export type SessionSummary = Pick<
 
 export type QuestionStats = {
   id: string;
+  type: QuestionType;
   text: string;
   correctId: string | null;
   answered: number;
@@ -65,6 +76,8 @@ export type QuestionStats = {
   /** 0..1, or null when nobody answered / no correct answer set */
   rate: number | null;
   answers: { id: string; text: string; count: number }[];
+  /** Open questions: the typed answers, newest first. */
+  texts: string[];
 };
 
 export type SessionStats = {

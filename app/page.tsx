@@ -20,11 +20,11 @@ export default function Home() {
         }
       />
       <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-5 px-5 py-12">
-        {/* Shared entry point for Czech and English workshops, so it shows both. */}
+        {/* Shared entry point for Czech and English events, so it shows both. */}
         <h1 className="anim-rise font-display text-4xl leading-tight font-extrabold">
-          Kód <span className="text-mint">workshopu</span>
+          Kód <span className="text-mint">akce</span>
           <span className="mt-1 block text-lg font-semibold text-muted" lang="en">
-            Workshop code
+            Event code
           </span>
         </h1>
         <form
@@ -43,7 +43,7 @@ export default function Home() {
             autoComplete="off"
             autoFocus
             maxLength={10}
-            aria-label="Kód workshopu / Workshop code"
+            aria-label="Kód akce / Event code"
           />
           <button className="btn shrink-0 px-6" disabled={!clean}>
             Vstoupit · Enter
